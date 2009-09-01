@@ -1,5 +1,5 @@
 ## Author: Euthymius
-## Version: r19
+## Version: 1.1.0
 ## Interface: 30200
 ## Title: TributeLoot |cff7fff7f -Ace3-|r
 ## Notes: Tool to assist the Tribute loot system
