@@ -5,11 +5,11 @@
 --          Website: http://www.tributeguild.net
 --
 --          Created: March 11, 2009
---    Last Modified: August 20, 2009
+--    Last Modified: September 01, 2009
 -------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-3.0", "AceTimer-3.0")
 TributeLoot.title = "TributeLoot"
-TributeLoot.version = "Version r18"
+TributeLoot.version = "Version r19"
 
 -------------------------------------------------------
 --Global Variables
@@ -21,7 +21,7 @@ local gOptionsDatabase
 
 -------------------------------------------------------
 -- This "enumeration" is used for returning status
--- information for the functions below
+-- information for some functions below
 -------------------------------------------------------
 local eStatusResults = {
    NONE=0,
@@ -461,7 +461,7 @@ function PrintLootResults()
    local resultMessage
    local counter
    local channel = gOptionsDatabase.ResultsChannel
-   SendChatMessage("<TributeLoot> Loot Results", channel)
+   SendChatMessage("<TributeLoot> Results", channel)
 
    for i,v in ipairs(gItemListTable) do
       resultMessage = v.ItemLink
@@ -489,7 +489,7 @@ end
 -- Prints a message in raid warning if you have assist
 -- Prints in raid if you don't have assist
 -- Prints in party if you aren't in a raid
--- Prints in say if you aren't in a party (mostly used for solo testing)
+-- Prints in say if you aren't in a party (used for solo testing)
 -------------------------------------------------------
 function PrintRaidMessage(message)
    local channel

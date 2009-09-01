@@ -1,3 +1,7 @@
+r19 | Euthymius | 5:05 PM Tuesday, September 01, 2009
+-- Slightly changed the wording on some strings
+-- First cut for wowace
+
 r18 | Euthymius | 4:10 AM Thursday, August 20, 2009
 -- Removes support for the "countdown" slash command
 -- Updated the "No items to link!" message
