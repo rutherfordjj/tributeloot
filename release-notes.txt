@@ -1,23 +1,23 @@
-r19 | Euthymius | 5:05 PM Tuesday, September 01, 2009
+v1.1 | Euthymius | 5:05 PM Tuesday, September 01, 2009
+-- First cut for WowAce
 -- Slightly changed the wording on some strings
--- First cut for wowace
 
-r18 | Euthymius | 4:10 AM Thursday, August 20, 2009
+v1.0.18 | Euthymius | 4:10 AM Thursday, August 20, 2009
 -- Removes support for the "countdown" slash command
 -- Updated the "No items to link!" message
 -- Minor code improvements
 
-r17 | Euthymius | 5:17 PM Monday, August 17, 2009
+v1.0.17 | Euthymius | 5:17 PM Monday, August 17, 2009
 -- Adds option to set the number of seconds before last call (default = 45)
 -- Adds option to set the minimum item quality to link (default = Epic)
 -- Adds option to set where loot results are linked (default = Officer)
 -- Adds option to determine if recipes/patterns should be linked (default = false)
 -- Recipes are now filtered by regular expressions instead of item ids
 
-r16 | Euthymius | 03:52 AM Monday, August 17, 2009
+v1.0.16 | Euthymius | 03:52 AM Monday, August 17, 2009
 -- Adds configuration options (FIRST CUT)
 
-r15 | Euthymius | 1:59 PM Monday, August 10, 2009
+v1.0.15 | Euthymius | 1:59 PM Monday, August 10, 2009
 -- Changed the loot timeout to 45 seconds
 -- [Pattern: Black Chitin Bracers] (Alliance) will not be linked
 -- [Pattern: Black Chitin Bracers] (Horde) will not be linked
@@ -52,7 +52,7 @@ r15 | Euthymius | 1:59 PM Monday, August 10, 2009
 -- [Plans: Titanium Spikeguards] (Alliance) will not be linked
 -- [Plans: Titanium Spikeguards] (Horde) will not be linked
 
-r14 | Euthymius | 7:41 PM Sunday, August 09, 2009
+v1.0.14 | Euthymius | 7:41 PM Sunday, August 09, 2009
 -- Updates the TOC for game version 3.2.0
 -- Updates to Ace3 r820
 -- Slash commands are no longer case-sensitive
@@ -60,24 +60,24 @@ r14 | Euthymius | 7:41 PM Sunday, August 09, 2009
 -- [Emblem of Triumph] will not be linked
 -- Minor code improvements
 
-r13 | Euthymius | 9:09 PM Monday, May 11, 2009
+v1.0.13 | Euthymius | 9:09 PM Monday, May 11, 2009
 -- [Archivum Data Disc] (heroic version) will not be linked
 -- [Reins of the Azure Drake] will not be linked
 -- Slightly modifies the invalid item response message
 -- Minor code improvements
 
-r12 | Euthymius | 1:17 PM Sunday, May 03, 2009
+v1.0.12 | Euthymius | 1:17 PM Sunday, May 03, 2009
 -- Fixes an error response message to say "[ROT]" instead of "[IN]"
 -- Minor code improvements
 
-r11 | Euthymius | 12:17 AM Sunday, May 03, 2009
+v1.0.11 | Euthymius | 12:17 AM Sunday, May 03, 2009
 -- [Mimiron's Head] will not be linked
 -- [Archivum Data Disc] will not be linked
 -- Whispering "out" now removes people from both the [IN] and [ROT] lists
 -- Changes the "printresults" (p) command option to "results" (r)
 -- Gives more detailed error responses when a player whispers invalid options/items
 
-r10 | Euthymius | 01:34 AM Wednesday, April 22, 2009
+v1.0.10 | Euthymius | 01:34 AM Wednesday, April 22, 2009
 -- [Reins of the Grand Black War Mammoth] will not be linked
 -- [Plans: Belt of the Titans] will not be linked
 -- [Plans: Battlelord's Plate Boots] will not be linked
@@ -100,15 +100,15 @@ r10 | Euthymius | 01:34 AM Wednesday, April 22, 2009
 -- [Formula: Enchant Weapon - Blade Ward] will not be linked
 -- [Formula: Enchant Weapon - Blood Draining] will not be linked
 
-r9 | Euthymius | 01:10 AM Monday, April 20, 2009
+v1.0.9 | Euthymius | 01:10 AM Monday, April 20, 2009
 -- Duplicate items will only be linked once (i.e. two conq gloves drop)
 -- Adds helper messages for people unfamiliar with the mod
 
-r8 | Euthymius | 01:03 AM Thursday, April 16, 2009
+v1.0.8 | Euthymius | 01:03 AM Thursday, April 16, 2009
 -- Updates the TOC for game version 3.1.0
 -- [Emblem of Conquest] will not be linked
 -- [Fragment of Val'anyr] will not be linked
 
-r7 | Euthymius | 11:31 PM Wednesday, April 01, 2009
+v1.0.7 | Euthymius | 11:31 PM Wednesday, April 01, 2009
 -- Adds filtering to prevent non-epic items from being linked
 -- Adds filtering to prevent ignored items from being linked (i.e. badges, sarth bag/mount, stuff like that)

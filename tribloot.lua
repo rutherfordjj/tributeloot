@@ -9,7 +9,7 @@
 -------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-3.0", "AceTimer-3.0")
 TributeLoot.title = "TributeLoot"
-TributeLoot.version = "Version r19"
+TributeLoot.version = "Version 1.1.0"
 
 -------------------------------------------------------
 --Global Variables
