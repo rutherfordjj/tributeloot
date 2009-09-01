@@ -1,0 +1,9 @@
+## Author: Euthymius
+## Version: r18
+## Interface: 30200
+## Title: TributeLoot |cff7fff7f -Ace3-|r
+## Notes: Tool to assist the Tribute loot system
+## SavedVariables: TLDB
+## Dependencies:
+embeds.xml
+tribloot.lua
