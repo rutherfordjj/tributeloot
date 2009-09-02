@@ -5,14 +5,14 @@
 --          Website: http://www.tributeguild.net
 --
 --          Created: March 11, 2009
---    Last Modified: September 01, 2009
+--    Last Modified: September 02, 2009
 -------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-3.0", "AceTimer-3.0")
 TributeLoot.title = "TributeLoot"
-TributeLoot.version = "Version 1.1.0"
+TributeLoot.version = "Version 1.1.1"
 
 -------------------------------------------------------
---Global Variables
+-- Global Variables
 -------------------------------------------------------
 local gItemListTable = {}
 local gLootInProgress = false
@@ -461,26 +461,32 @@ function PrintLootResults()
    local resultMessage
    local counter
    local channel = gOptionsDatabase.ResultsChannel
-   SendChatMessage("<TributeLoot> Results", channel)
 
-   for i,v in ipairs(gItemListTable) do
-      resultMessage = v.ItemLink
-      counter = 0
-      for index, value in ipairs(v.InList) do
-         resultMessage = resultMessage .. " " .. value .. " "
-         counter = counter + 1
+   --Do not display the results header if there is nothing to link
+   if(#gItemListTable > 0) then
+      SendChatMessage("<TributeLoot> Results", channel)
+
+      for i,v in ipairs(gItemListTable) do
+         resultMessage = v.ItemLink
+         counter = 0
+         for index, value in ipairs(v.InList) do
+            resultMessage = resultMessage .. " " .. value .. " "
+            counter = counter + 1
+         end
+
+         for index, value in ipairs(v.RotList) do
+            resultMessage = resultMessage .. " (" .. value .. ") "
+            counter = counter + 1
+         end
+
+         if (0 == counter) then
+            resultMessage = resultMessage .. " rot"
+         end
+
+         SendChatMessage(resultMessage, channel)
       end
-
-      for index, value in ipairs(v.RotList) do
-         resultMessage = resultMessage .. " (" .. value .. ") "
-         counter = counter + 1
-      end
-
-      if (0 == counter) then
-         resultMessage = resultMessage .. " rot"
-      end
-
-      SendChatMessage(resultMessage, channel)
+   else
+      self:Print("There are no results to print.")
    end
 end
 
