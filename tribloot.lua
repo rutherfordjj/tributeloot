@@ -688,19 +688,3 @@ function TributeLoot:OnInitialize()
    self:RegisterChatCommand("tl", SlashHandler)
    self:SetupOptions()
 end
-
-
--------------------------------------------------------
--- Executes when the addon is enabled
--------------------------------------------------------
-function TributeLoot:OnEnable()
-   self:Print("Enabled");
-end
-
-
--------------------------------------------------------
--- Executes when the addon is disabled
--------------------------------------------------------
-function TributeLoot:OnDisable()
-   self:Print("Disabled");
-end
