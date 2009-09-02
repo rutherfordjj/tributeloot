@@ -1,3 +1,7 @@
+v1.1.1 | Euthymius | 12:56 PM Wednesday, September 02, 2009
+-- Remove start-up text
+-- Do not print results header if there are no results in the table
+
 v1.1.0 | Euthymius | 5:05 PM Tuesday, September 01, 2009
 -- First cut for WowAce
 -- Slightly changed the wording on some strings
