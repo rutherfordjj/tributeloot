@@ -5,11 +5,11 @@
 --          Website: http://www.tributeguild.net
 --
 --          Created: March 11, 2009
---    Last Modified: September 02, 2009
+--    Last Modified: September 20, 2009
 -------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-3.0", "AceTimer-3.0")
 TributeLoot.title = "TributeLoot"
-TributeLoot.version = "Version 1.1.1"
+TributeLoot.version = "Version 1.1.2"
 
 -------------------------------------------------------
 -- Global Variables
@@ -86,7 +86,6 @@ local options = {
                   [2] = ITEM_QUALITY_COLORS[2].hex .. "Uncommon|r",
                   [3] = ITEM_QUALITY_COLORS[3].hex .. "Rare|r",
                   [4] = ITEM_QUALITY_COLORS[4].hex .. "Epic|r",
-                  [5] = ITEM_QUALITY_COLORS[5].hex .. "Legendary|r",
                },
                get = function()
                   return gOptionsDatabase.ItemQualityFilter
@@ -105,10 +104,8 @@ local options = {
                   ["OFFICER"] = "Officer",
                   ["GUILD"] = "Guild",
                   ["RAID"] = "Raid",
-                  ["RAID_WARNING"] = "Raid Warning",
                   ["PARTY"] = "Party",
                   ["SAY"] = "Say",
-                  ["YELL"] = "Yell",
                },
                get = function()
                   return gOptionsDatabase.ResultsChannel
@@ -140,10 +137,9 @@ local options = {
 -- Determines if an item should be linked
 --
 -- The item is considered invalid if it meets any of the following conditions:
--- 1.)  The item already exists in the item list table
--- 2.)  The item is below the minimum item quality level
--- 3.)  The item is on the ignore list
--- 4.)  The item is a recipes and linking recipes is disabled
+-- 1.)  The item is below the minimum item quality level
+-- 2.)  The item is on the ignore list
+-- 3.)  The item is a recipe and linking recipes is disabled
 --
 -- @return true if item is valid, false otherwise
 -------------------------------------------------------
@@ -153,13 +149,13 @@ function IsValidItem(item)
    if (nil ~= item) then
       local itemName, itemLink, itemRarity = GetItemInfo(item)
 
-      --Check if the item is at least epic quality before doing anything else
+      --Check if the item is below the minimum item quality level
       if (nil ~= itemLink) and (itemRarity >= gOptionsDatabase.ItemQualityFilter) then
          local itemId = GetItemId(itemLink)
 
          if (nil ~= itemId) and (nil ~= itemName) then
-            --Check if the item should be ignored or if it is a duplicate
-            if (false == IsIgnoredItem(itemId)) and (false == DoesItemEntryExist(itemId)) then
+            --Check if the item should be ignored
+            if (false == IsIgnoredItem(itemId)) then
                --Check if the item is a recipe and if recipes should be linked
                if (false == IsRecipeItem(itemName)) or (true == gOptionsDatabase.LinkRecipes) then
                   isValid = true
@@ -249,25 +245,37 @@ end
 -------------------------------------------------------
 -- Adds a new item entry to the table at the specified index
 --
--- The item will not be added if it meets any of the following conditions:
--- 1.)  There is already an entry at the "index" location
--- 2.)  IsValidItem() returns false
+-- If the item already exists in the table, this will just increment the count.
 --
--- @return true if item is added, false otherwise
+-- The item will not be added if IsValidItem() returns false
+--
+-- @return true if item is added or count updated, false otherwise
 -------------------------------------------------------
-function AddItem(index, itemLink)
+function AddItem(itemLink)
    local retVal = false
 
-   if (nil == gItemListTable[index]) and IsValidItem(itemLink) then
-      -- Add the item entry to the table
-      gItemListTable[index] = {
-         ItemLink = itemLink,
-         ItemId = GetItemId(itemLink),
-         InList = {},
-         RotList = {},
-      }
+   if (nil ~= itemLink) then
+      local itemId = GetItemId(itemLink)
+      local alreadyExists, location = DoesItemEntryExist(itemId)
 
-      retVal = true
+      if (true == alreadyExists) then
+         if (nil ~= location) and (nil ~= gItemListTable[location]) then
+            gItemListTable[location].Count = gItemListTable[location].Count + 1
+
+            retVal = true
+         end
+      elseif (true == IsValidItem(itemLink)) then
+         -- Add the item entry to the table
+         gItemListTable[#gItemListTable + 1] = {
+            ItemLink = itemLink,
+            ItemId = GetItemId(itemLink),
+            Count = 1,
+            InList = {},
+            RotList = {},
+         }
+
+         retVal = true
+      end
    end
 
    return retVal
@@ -295,7 +303,6 @@ end
 
 -------------------------------------------------------
 -- Checks if an item id already exists in the item table
--- (This function prevents duplicate items from being linked more than once.)
 --
 -- @return true if item entry already exists, false otherwise
 --         table index if exists, nil otherwise
@@ -384,32 +391,36 @@ end
 -------------------------------------------------------
 function LinkLoot()
    local self = TributeLoot
-   local itemLink
-   local itemNumber = 0
 
    if (true == gLootInProgress) then
       self:Print("Cannot link anymore items until Last Call")
    else
-      --Clear previous results when linking more items
-      ClearItems()
+      if (GetNumLootItems() > 1) then
+        --Clear previous results
+         ClearItems()
 
-      for i = 1, GetNumLootItems() do
-         if (LootSlotIsItem(i)) then
-            itemLink = GetLootSlotLink(i)
-            if (nil ~= itemLink) then
-               itemNumber = itemNumber + 1
-               if AddItem(itemNumber, itemLink) then
-                  PrintRaidMessage(itemNumber .. " -- " .. itemLink)
-               else
-                  itemNumber = itemNumber - 1
-               end
+         --Build item table
+         for i = 1, GetNumLootItems() do
+            if (LootSlotIsItem(i)) then
+               AddItem(GetLootSlotLink(i))
             end
-         end
-      end
+         end    
 
-      if (itemNumber > 0) then
-         PrintRaidMessage("Whisper me \"in\" or \"rot\" with an item number above (example \"in 1\")")
-         StartCountDown()
+         --Print item table
+         if (#gItemListTable > 0) then
+            PrintRaidMessage("Whisper me \"in\" or \"rot\" with an item number below (example \"in 1\")")
+            local message
+            for i,v in ipairs(gItemListTable) do
+               message = i .. " -- " .. v.ItemLink
+               if (v.Count > 1) then
+                  message = message .. "x" .. v.Count
+               end
+               PrintRaidMessage(message)
+            end
+            StartCountDown()
+         else
+            self:Print("No valid items were found. Check the item quality filter in the options.")
+         end
       else
          self:Print("No items to link!  Make sure a loot window is open.")
       end
@@ -422,7 +433,7 @@ end
 -------------------------------------------------------
 function StartCountDown()
    local self = TributeLoot
-   local countdown = gOptionsDatabase.CountdownSeconds -- NOTE:  This value should be greater than 30
+   local countdown = gOptionsDatabase.CountdownSeconds -- NOTE:  This value should always be greater than 30
 
    gLootInProgress = true
    ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER", WhisperHandler)
@@ -628,7 +639,7 @@ end
 function SlashHandler(option)
    local self = TributeLoot
 
-   --Make the option case insensitive
+   --Make the slash option case insensitive
    option = option:lower()
 
    if ("link" == option) or ("l" == option) then
@@ -673,7 +684,7 @@ end
 
 
 -------------------------------------------------------
--- Called whenever our database profile is changed
+-- Called when options profile is changed
 -------------------------------------------------------
 function TributeLoot:OnProfileChanged(event, database, newProfileKey)
    gOptionsDatabase = database.profile
