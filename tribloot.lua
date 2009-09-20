@@ -11,6 +11,7 @@ local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-
 TributeLoot.title = "TributeLoot"
 TributeLoot.version = "Version 1.1.2"
 
+
 -------------------------------------------------------
 -- Global Variables
 -------------------------------------------------------
@@ -337,7 +338,7 @@ function DoesPlayerExistInList(list, playerName)
 
    if (nil ~= list) and (nil ~= playerName) then
       for index, value in ipairs(list) do
-         if (value == playerName) then
+         if (value.PlayerName == playerName) then
             playerExists = true
             location = index
             break
@@ -355,11 +356,20 @@ end
 -- @return SUCCESS if successful
 --         PLAYER_ALREADY_EXISTS if player already exists in list
 -------------------------------------------------------
-function AddPlayerToList(list, playerName)
-   local status = eStatusResults.PLAYER_ALREADY_EXISTS  
+function AddPlayerToList(list, playerName, replacingItemLink)
+   local status = eStatusResults.PLAYER_ALREADY_EXISTS
+   local replacingItem = nil
+   
+   --Do a simple/rough check to see if this is an item link
+   if (nil ~= replacingItemLink) and (nil ~= replacingItemLink:find("item:")) then
+      replacingItem = replacingItemLink
+   end
 
    if not DoesPlayerExistInList(list, playerName) then
-      table.insert(list, playerName)
+      list[#list + 1] = {
+         PlayerName = playerName,
+         ReplacingItemLink = replacingItem
+      }
       status = eStatusResults.SUCCESS
    end
 
@@ -460,33 +470,35 @@ function LastCall()
    ChatFrame_RemoveMessageEventFilter("CHAT_MSG_WHISPER", WhisperHandler)
    ChatFrame_RemoveMessageEventFilter("CHAT_MSG_WHISPER_INFORM", WhisperInformHandler)
    gLootInProgress = false
-   PrintLootResults()
+   PrintOverallLootResults()
 end
 
 
 -------------------------------------------------------
 -- Prints the loot results
 -------------------------------------------------------
-function PrintLootResults()
+function PrintOverallLootResults()
    local self = TributeLoot
    local resultMessage
    local counter
    local channel = gOptionsDatabase.ResultsChannel
 
    --Do not display the results header if there is nothing to link
-   if(#gItemListTable > 0) then
+   if (true == gLootInProgress) then
+      self:Print("Cannot print results until Last Call")
+   elseif(#gItemListTable > 0) then
       SendChatMessage("<TributeLoot> Results", channel)
 
       for i,v in ipairs(gItemListTable) do
          resultMessage = v.ItemLink
          counter = 0
          for index, value in ipairs(v.InList) do
-            resultMessage = resultMessage .. " " .. value .. " "
+            resultMessage = resultMessage .. " " .. value.PlayerName .. " "
             counter = counter + 1
          end
 
          for index, value in ipairs(v.RotList) do
-            resultMessage = resultMessage .. " (" .. value .. ") "
+            resultMessage = resultMessage .. " (" .. value.PlayerName .. ") "
             counter = counter + 1
          end
 
@@ -498,6 +510,60 @@ function PrintLootResults()
       end
    else
       self:Print("There are no results to print.")
+   end
+end
+
+
+-------------------------------------------------------
+-- Prints detailed results on a single item
+-------------------------------------------------------
+function PrintDetailedResults(index)
+   local self = TributeLoot
+   local channel = gOptionsDatabase.ResultsChannel
+   local resultsMessage
+   local rot
+
+   if (true == gLootInProgress) then
+      self:Print("Cannot print results until Last Call")
+   elseif (nil ~= index) and (nil ~= gItemListTable[index]) then
+      rot = true
+      SendChatMessage("<TributeLoot> Detailed Results for " .. gItemListTable[index].ItemLink, channel)
+
+      for i, v in ipairs(gItemListTable[index].InList) do
+         resultMessage = v.PlayerName .. " replacing "
+
+         if(nil == v.ReplacingItemLink) then
+            resultMessage = resultMessage .. "{unknown}"
+         else
+            resultMessage = resultMessage .. v.ReplacingItemLink
+         end
+
+         resultMessage = resultMessage .. " for mainspec"
+
+         rot = false
+         SendChatMessage(resultMessage, channel)
+      end
+
+      for i, v in ipairs(gItemListTable[index].RotList) do
+         resultMessage = v.PlayerName .. " replacing "
+
+         if(nil == v.ReplacingItemLink) then
+            resultMessage = resultMessage .. "{unknown}"
+         else
+            resultMessage = resultMessage .. v.ReplacingItemLink
+         end
+
+         resultMessage = resultMessage .. " for offspec"
+
+         rot = false
+         SendChatMessage(resultMessage, channel)
+      end
+
+      if (true == rot) then
+         SendChatMessage("No one is interested in this item.", channel)
+      end
+   else
+      self:Print("Invalid item index")
    end
 end
 
@@ -538,7 +604,7 @@ function WhisperHandler(ChatFrameSelf, event, arg1, arg2)
 
    --Do not process messages received from the mod
    if not whisperMsg:find("^<TributeLoot>") then
-      local option, itemIndex = self:GetArgs(whisperMsg, 2)
+      local option, itemIndex, replacingItemLink = self:GetArgs(whisperMsg, 3)
 
       if (nil ~= option) and (nil~= player) then
          option = option:lower()
@@ -551,7 +617,7 @@ function WhisperHandler(ChatFrameSelf, event, arg1, arg2)
          if ("in" == option) then
             --Process the command
             if (nil ~= gItemListTable[itemIndex]) then
-               status = AddPlayerToList(gItemListTable[itemIndex].InList, player)
+               status = AddPlayerToList(gItemListTable[itemIndex].InList, player, replacingItemLink)
             else
                status = eStatusResults.INVALID_ITEM
             end
@@ -567,7 +633,7 @@ function WhisperHandler(ChatFrameSelf, event, arg1, arg2)
          elseif ("rot" == option) then
             --Process the command
             if (nil ~= gItemListTable[itemIndex]) then
-               status = AddPlayerToList(gItemListTable[itemIndex].RotList, player)
+               status = AddPlayerToList(gItemListTable[itemIndex].RotList, player, replacingItemLink)
             else
                status = eStatusResults.INVALID_ITEM
             end
@@ -636,28 +702,31 @@ end
 -------------------------------------------------------
 -- Handles slash commands
 -------------------------------------------------------
-function SlashHandler(option)
+function SlashHandler(options)
    local self = TributeLoot
+   local command, param1 = self:GetArgs(options:lower(), 2)
 
-   --Make the slash option case insensitive
-   option = option:lower()
-
-   if ("link" == option) or ("l" == option) then
+   if ("link" == command) or ("l" == command) then
       LinkLoot()
-   elseif ("results" == option) or ("r" == option) then
-      PrintLootResults()
-   elseif ("clear" == option) then
+   elseif ("results" == command) or ("r" == command) then
+      if (nil ~= param1) then
+         param1 = tonumber(param1)
+         PrintDetailedResults(param1)
+      else
+         PrintOverallLootResults()
+      end
+   elseif ("clear" == command) then
       if (true == ClearItems()) then
 		   self:Print("Previous results were cleared.")
       else
          self:Print("Could not clear previous results.")
       end
-   elseif ("options" == option) or ("o" == option) then
+   elseif ("options" == command) or ("o" == command) then
       self:ShowConfig()
    else
       self:Print(self.version)
       self:Print("/tl link")
-      self:Print("/tl results")
+      self:Print("/tl results [#]")
       self:Print("/tl clear")
       self:Print("/tl options")
    end
