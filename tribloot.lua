@@ -5,11 +5,11 @@
 --          Website: http://www.tributeguild.net
 --
 --          Created: March 11, 2009
---    Last Modified: September 20, 2009
+--    Last Modified: September 23, 2009
 -------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-3.0", "AceTimer-3.0")
 TributeLoot.title = "TributeLoot"
-TributeLoot.version = "Version 1.1.2"
+TributeLoot.version = "Version 1.1.3"
 
 
 -------------------------------------------------------
@@ -184,6 +184,10 @@ function IsIgnoredItem(itemId)
       (45624 == itemId) or   -- Emblem of Conquest
       (47241 == itemId) or   -- Emblem of Triumph
       (43345 == itemId) or   -- Dragon Hide Bag
+      (49294 == itemId) or   -- Ashen Sack of Gems
+      (49643 == itemId) or   -- Head of Onyxia (Horde)
+      (49644 == itemId) or   -- Head of Onyxia (Alliance)
+      (49295 == itemId) or   -- Enlarged Onyxia Hide Backpack
       (43346 == itemId) or   -- Large Satchel of Spoils
       (43954 == itemId) or   -- Reins of the Twilight Drake
       (43952 == itemId) or   -- Reins of the Azure Drake
@@ -563,7 +567,7 @@ function PrintDetailedResults(index)
          SendChatMessage("No one is interested in this item.", channel)
       end
    else
-      self:Print("Invalid item index")
+      self:Print("Cannot print detailed results. You did not specify a valid item number.")
    end
 end
 
