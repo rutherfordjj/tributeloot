@@ -8,9 +8,9 @@
 --    Last Modified: September 23, 2009
 -------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-3.0", "AceTimer-3.0")
+local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
 TributeLoot.title = "TributeLoot"
-TributeLoot.version = "Version 1.1.3"
-
+TributeLoot.version = L["Version"] .. " 1.1.5"
 
 -------------------------------------------------------
 -- Global Variables
@@ -25,11 +25,11 @@ local gOptionsDatabase
 -- information for some functions below
 -------------------------------------------------------
 local eStatusResults = {
-   NONE=0,
-   INVALID_ITEM=1,
-   PLAYER_ALREADY_EXISTS=2,
-   PLAYER_NOT_FOUND=3,
-   SUCCESS=4,
+   NONE = 0,
+   INVALID_ITEM = 1,
+   PLAYER_ALREADY_EXISTS = 2,
+   PLAYER_NOT_FOUND = 3,
+   SUCCESS = 4,
 }
 
 
@@ -51,18 +51,18 @@ local defaults = {
 -------------------------------------------------------
 local options = {
 	type = "group",
-   name = "TributeLoot",
+   name = TributeLoot.title,
 	args = {
       General = {
          order = 1,
          type = "group",
-         name = "General",
-         desc = "General",
+         name = L["General"],
+         desc = L["General"],
          args = {
             CountdownSeconds = {
                type = "range",
-               name = "Countdown Seconds",
-               desc = "Sets the number of seconds to countdown after loot is linked",
+               name = L["Countdown Seconds"],
+               desc = L["Sets the number of seconds to countdown after loot is linked"],
                order = 2,
                width = "double",
                min = 35,
@@ -77,16 +77,16 @@ local options = {
             },
             ItemQualityFilter = {
                type = "select",
-               name = "Item Quality",
-               desc = "Sets the minimum item quality to link as loot",
+               name = L["Item Quality"],
+               desc = L["Sets the minimum item quality to link as loot"],
                order = 3,
                width = "double",
                values = {
-                  [0] = ITEM_QUALITY_COLORS[0].hex .. "Poor|r",
-                  [1] = ITEM_QUALITY_COLORS[1].hex .. "Common|r",
-                  [2] = ITEM_QUALITY_COLORS[2].hex .. "Uncommon|r",
-                  [3] = ITEM_QUALITY_COLORS[3].hex .. "Rare|r",
-                  [4] = ITEM_QUALITY_COLORS[4].hex .. "Epic|r",
+                  [0] = ITEM_QUALITY_COLORS[0].hex .. L["Poor"] .. "|r",
+                  [1] = ITEM_QUALITY_COLORS[1].hex .. L["Common"] .. "|r",
+                  [2] = ITEM_QUALITY_COLORS[2].hex .. L["Uncommon"] .. "|r",
+                  [3] = ITEM_QUALITY_COLORS[3].hex .. L["Rare"] .. "|r",
+                  [4] = ITEM_QUALITY_COLORS[4].hex .. L["Epic"] .. "|r",
                },
                get = function()
                   return gOptionsDatabase.ItemQualityFilter
@@ -99,14 +99,14 @@ local options = {
                type = "select",
                order = 4,
                width = "double",
-               name = "Results Channel",
-               desc = "Determines where loot results are printed",
+               name = L["Results Channel"],
+               desc = L["Determines where loot results are printed"],
                values = {
-                  ["OFFICER"] = "Officer",
-                  ["GUILD"] = "Guild",
-                  ["RAID"] = "Raid",
-                  ["PARTY"] = "Party",
-                  ["SAY"] = "Say",
+                  ["OFFICER"] = L["Officer"],
+                  ["GUILD"] = L["Guild"],
+                  ["RAID"] = L["Raid"],
+                  ["PARTY"] = L["Party"],
+                  ["SAY"] = L["Say"],
                },
                get = function()
                   return gOptionsDatabase.ResultsChannel
@@ -119,8 +119,8 @@ local options = {
                type = "toggle",
                order = 5,
                width = "double",
-               name = "Link Recipes",
-               desc = "Determines if recipes will be linked as loot",
+               name = L["Link Recipes"],
+               desc = L["Determines if recipes will be linked as loot"],
                get = function()
                   return gOptionsDatabase.LinkRecipes
                end,
@@ -212,12 +212,12 @@ end
 function IsRecipeItem(itemName)
    local isRecipe = false
 
-   if itemName:find("Design:") or
-      itemName:find("Formula:") or
-      itemName:find("Pattern:") or
-      itemName:find("Plans:") or
-      itemName:find("Recipe:") or
-      itemName:find("Schematic:") then
+   if itemName:find(L["Design:"]) or
+      itemName:find(L["Formula:"]) or
+      itemName:find(L["Pattern:"]) or
+      itemName:find(L["Plans:"]) or
+      itemName:find(L["Recipe:"]) or
+      itemName:find(L["Schematic:"]) then
 
       isRecipe = true;
    end
@@ -360,20 +360,16 @@ end
 -- @return SUCCESS if successful
 --         PLAYER_ALREADY_EXISTS if player already exists in list
 -------------------------------------------------------
-function AddPlayerToList(list, playerName, replacingItemLink)
+function AddPlayerToList(list, playerName, extraInfo)
    local status = eStatusResults.PLAYER_ALREADY_EXISTS
-   local replacingItem = nil
-   
-   --Do a simple/rough check to see if this is an item link
-   if (nil ~= replacingItemLink) and (nil ~= replacingItemLink:find("item:")) then
-      replacingItem = replacingItemLink
-   end
 
    if not DoesPlayerExistInList(list, playerName) then
-      list[#list + 1] = {
+      local entry = {
          PlayerName = playerName,
-         ReplacingItemLink = replacingItem
+         ExtraInfo = extraInfo
       }
+
+      table.insert(list, entry)
       status = eStatusResults.SUCCESS
    end
 
@@ -407,7 +403,7 @@ function LinkLoot()
    local self = TributeLoot
 
    if (true == gLootInProgress) then
-      self:Print("Cannot link anymore items until Last Call")
+      self:Print(L["Cannot link anymore items until Last Call."])
    else
       if (GetNumLootItems() > 1) then
         --Clear previous results
@@ -422,7 +418,7 @@ function LinkLoot()
 
          --Print item table
          if (#gItemListTable > 0) then
-            PrintRaidMessage("Whisper me \"in\" or \"rot\" with an item number below (example \"in 1\")")
+            PrintRaidMessage(L["Whisper me \"in\" or \"rot\" with an item number below (example \"in 1\")"])
             local message
             for i,v in ipairs(gItemListTable) do
                message = i .. " -- " .. v.ItemLink
@@ -433,10 +429,10 @@ function LinkLoot()
             end
             StartCountDown()
          else
-            self:Print("No valid items were found. Check the item quality filter in the options.")
+            self:Print(L["No valid items were found. Check the item quality filter in the options."])
          end
       else
-         self:Print("No items to link!  Make sure a loot window is open.")
+         self:Print(L["No items to link. Make sure a loot window is open."])
       end
    end
 end
@@ -453,15 +449,15 @@ function StartCountDown()
    ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER", WhisperHandler)
    ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER_INFORM", WhisperInformHandler)
 
-   self:ScheduleTimer(PrintRaidMessage, countdown - 30, "Last call in 30 seconds")
-   self:ScheduleTimer(PrintRaidMessage, countdown - 15, "15")
-   self:ScheduleTimer(PrintRaidMessage, countdown - 10, "10")
-   self:ScheduleTimer(PrintRaidMessage, countdown - 5, "5")
-   self:ScheduleTimer(PrintRaidMessage, countdown - 4, "4")
-   self:ScheduleTimer(PrintRaidMessage, countdown - 3, "3")
-   self:ScheduleTimer(PrintRaidMessage, countdown - 2, "2")
-   self:ScheduleTimer(PrintRaidMessage, countdown - 1, "1")
-   self:ScheduleTimer(PrintRaidMessage, countdown, "Last Call")
+   self:ScheduleTimer(PrintRaidMessage, countdown - 30, L["Last call in 30 seconds"])
+   self:ScheduleTimer(PrintRaidMessage, countdown - 15, L["15"])
+   self:ScheduleTimer(PrintRaidMessage, countdown - 10, L["10"])
+   self:ScheduleTimer(PrintRaidMessage, countdown - 5,  L["5"])
+   self:ScheduleTimer(PrintRaidMessage, countdown - 4,  L["4"])
+   self:ScheduleTimer(PrintRaidMessage, countdown - 3,  L["3"])
+   self:ScheduleTimer(PrintRaidMessage, countdown - 2,  L["2"])
+   self:ScheduleTimer(PrintRaidMessage, countdown - 1,  L["1"])
+   self:ScheduleTimer(PrintRaidMessage, countdown, L["Last Call"])
    self:ScheduleTimer(LastCall, countdown + 1, nil)
 end
 
@@ -489,9 +485,9 @@ function PrintOverallLootResults()
 
    --Do not display the results header if there is nothing to link
    if (true == gLootInProgress) then
-      self:Print("Cannot print results until Last Call")
+      self:Print(L["Cannot print results until Last Call."])
    elseif(#gItemListTable > 0) then
-      SendChatMessage("<TributeLoot> Results", channel)
+      SendChatMessage("<" .. TributeLoot.title .. "> " ..  L["Results"], channel)
 
       for i,v in ipairs(gItemListTable) do
          resultMessage = v.ItemLink
@@ -507,13 +503,13 @@ function PrintOverallLootResults()
          end
 
          if (0 == counter) then
-            resultMessage = resultMessage .. " rot"
+            resultMessage = resultMessage .. " " .. L["rot"]
          end
 
          SendChatMessage(resultMessage, channel)
       end
    else
-      self:Print("There are no results to print.")
+      self:Print(L["There are no results to print."])
    end
 end
 
@@ -528,46 +524,42 @@ function PrintDetailedResults(index)
    local rot
 
    if (true == gLootInProgress) then
-      self:Print("Cannot print results until Last Call")
+      self:Print(L["Cannot print results until Last Call."])
    elseif (nil ~= index) and (nil ~= gItemListTable[index]) then
       rot = true
-      SendChatMessage("<TributeLoot> Detailed Results for " .. gItemListTable[index].ItemLink, channel)
+      SendChatMessage("<" .. TributeLoot.title .. "> " .. L["Detailed Results for %s"]:format(gItemListTable[index].ItemLink), channel)
 
       for i, v in ipairs(gItemListTable[index].InList) do
-         resultMessage = v.PlayerName .. " replacing "
-
-         if(nil == v.ReplacingItemLink) then
-            resultMessage = resultMessage .. "{unknown}"
+         if (nil == v.ExtraInfo) then
+            resultMessage = L["%s {unknown} for %s"]:format(v.PlayerName, v.ExtraInfo, L["mainspec"])
+         elseif not (v.ExtraInfo:match("%D+")) then
+            resultMessage = L["%s bidding %s for %s"]:format(v.PlayerName, v.ExtraInfo, L["mainspec"])
          else
-            resultMessage = resultMessage .. v.ReplacingItemLink
+            resultMessage = L["%s replacing %s for %s"]:format(v.PlayerName, v.ExtraInfo, L["mainspec"])
          end
-
-         resultMessage = resultMessage .. " for mainspec"
 
          rot = false
          SendChatMessage(resultMessage, channel)
       end
 
       for i, v in ipairs(gItemListTable[index].RotList) do
-         resultMessage = v.PlayerName .. " replacing "
-
-         if(nil == v.ReplacingItemLink) then
-            resultMessage = resultMessage .. "{unknown}"
+         if (nil == v.ExtraInfo) then
+            resultMessage = L["%s {unknown} for %s."]:format(v.PlayerName, v.ExtraInfo, L["offspec"])
+         elseif not (v.ExtraInfo:match("%D+")) then
+            resultMessage = L["%s bidding %s for %s"]:format(v.PlayerName, v.ExtraInfo, L["offspec"])
          else
-            resultMessage = resultMessage .. v.ReplacingItemLink
+            resultMessage = L["%s replacing %s for %s"]:format(v.PlayerName, v.ExtraInfo, L["offspec"])
          end
-
-         resultMessage = resultMessage .. " for offspec"
 
          rot = false
          SendChatMessage(resultMessage, channel)
       end
 
       if (true == rot) then
-         SendChatMessage("No one is interested in this item.", channel)
+         SendChatMessage(L["No one is interested in this item."], channel)
       end
    else
-      self:Print("Cannot print detailed results. You did not specify a valid item number.")
+      self:Print(L["Cannot print detailed results. You did not specify a valid item number."])
    end
 end
 
@@ -607,8 +599,8 @@ function WhisperHandler(ChatFrameSelf, event, arg1, arg2)
    local status = eStatusResults.NONE
 
    --Do not process messages received from the mod
-   if not whisperMsg:find("^<TributeLoot>") then
-      local option, itemIndex, replacingItemLink = self:GetArgs(whisperMsg, 3)
+   if not whisperMsg:find("^<" .. TributeLoot.title .. ">") then
+      local option, itemIndex, extraInfo = self:GetArgs(whisperMsg, 3)
 
       if (nil ~= option) and (nil~= player) then
          option = option:lower()
@@ -621,34 +613,34 @@ function WhisperHandler(ChatFrameSelf, event, arg1, arg2)
          if ("in" == option) then
             --Process the command
             if (nil ~= gItemListTable[itemIndex]) then
-               status = AddPlayerToList(gItemListTable[itemIndex].InList, player, replacingItemLink)
+               status = AddPlayerToList(gItemListTable[itemIndex].InList, player, extraInfo)
             else
                status = eStatusResults.INVALID_ITEM
             end
 
             --Send whisper response
             if (eStatusResults.SUCCESS == status) then
-               SendChatMessage("<TributeLoot> You were added to the [IN] list for " .. gItemListTable[itemIndex].ItemLink .. ". Whisper me \"out " .. itemIndex .. "\" to be removed.", "WHISPER", nil, player)
+               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed"]:format(L["[IN]"], gItemListTable[itemIndex].ItemLink, itemIndex), "WHISPER", nil, player)
             elseif (eStatusResults.PLAYER_ALREADY_EXISTS == status) then
-               SendChatMessage("<TributeLoot> You are already added to the [IN] list for " .. gItemListTable[itemIndex].ItemLink .. ", so I am ignoring this request.", "WHISPER", nil, player)
+               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[IN]"], gItemListTable[itemIndex].ItemLink), "WHISPER", nil, player)
             elseif (eStatusResults.INVALID_ITEM == status) then
-               SendChatMessage("<TributeLoot> You did not specify a valid item, please try again.", "WHISPER", nil, player)
+               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], "WHISPER", nil, player)
             end
          elseif ("rot" == option) then
             --Process the command
             if (nil ~= gItemListTable[itemIndex]) then
-               status = AddPlayerToList(gItemListTable[itemIndex].RotList, player, replacingItemLink)
+               status = AddPlayerToList(gItemListTable[itemIndex].RotList, player, extraInfo)
             else
                status = eStatusResults.INVALID_ITEM
             end
 
             --Send whisper response
             if (eStatusResults.SUCCESS == status) then
-               SendChatMessage("<TributeLoot> You were added to the [ROT] list for " .. gItemListTable[itemIndex].ItemLink .. ". Whisper me \"out " .. itemIndex .. "\" to be removed.", "WHISPER", nil, player)
+               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed"]:format(L["[ROT]"], gItemListTable[itemIndex].ItemLink, itemIndex), "WHISPER", nil, player)
             elseif (eStatusResults.PLAYER_ALREADY_EXISTS == status) then
-               SendChatMessage("<TributeLoot> You are already added to the [ROT] list for " .. gItemListTable[itemIndex].ItemLink .. ", so I am ignoring this request.", "WHISPER", nil, player)
+               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[ROT]"], gItemListTable[itemIndex].ItemLink), "WHISPER", nil, player)
             elseif (eStatusResults.INVALID_ITEM == status) then
-               SendChatMessage("<TributeLoot> You did not specify a valid item, please try again.", "WHISPER", nil, player)
+               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], "WHISPER", nil, player)
             end
          elseif ("out" == option) then
             local listString = ""
@@ -657,17 +649,17 @@ function WhisperHandler(ChatFrameSelf, event, arg1, arg2)
             if (nil ~= gItemListTable[itemIndex]) then
                status = RemovePlayerFromList(gItemListTable[itemIndex].InList, player)
                if (eStatusResults.SUCCESS == status) then
-                  listString = "[IN]"
+                  listString = L["[IN]"]
                end
 
                status = RemovePlayerFromList(gItemListTable[itemIndex].RotList, player)
                if(eStatusResults.SUCCESS == status) then
                   --If the player was also removed from the [IN] list, then append "and"
                   if ("" ~= listString) then
-                     listString = listString .. " and "
+                     listString = listString .. " " .. L["and"] .. " "
                   end
 
-                  listString = listString .. "[ROT]"
+                  listString = listString .. L["[ROT]"]
                end
             else
                status = eStatusResults.INVALID_ITEM
@@ -675,11 +667,11 @@ function WhisperHandler(ChatFrameSelf, event, arg1, arg2)
 
             --Send whisper response
             if ("" ~= listString) then
-               SendChatMessage("<TributeLoot> You were removed from the " .. listString .. " list for " .. gItemListTable[itemIndex].ItemLink .. ".", "WHISPER", nil, player)
+               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were removed from the %s list for %s."]:format(listString, gItemListTable[itemIndex].ItemLink), "WHISPER", nil, player)
             elseif (eStatusResults.PLAYER_NOT_FOUND == status) then
-               SendChatMessage("<TributeLoot> You are not on the lists for " .. gItemListTable[itemIndex].ItemLink .. ", so I cannot remove you.", "WHISPER", nil, player)
+               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are not on the lists for %s, so I cannot remove you."]:format(gItemListTable[itemIndex].ItemLink) , "WHISPER", nil, player)
             elseif (eStatusResults.INVALID_ITEM == status) then
-               SendChatMessage("<TributeLoot> You did not specify a valid item, please try again.", "WHISPER", nil, player)
+               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], "WHISPER", nil, player)
             end
          end
       end
@@ -697,7 +689,7 @@ end
 -------------------------------------------------------
 function WhisperInformHandler(ChatFrameSelf, event, arg1, arg2)
    --Do not display whispers sent by the mod
-   if arg1:find("^<TributeLoot>") then
+   if arg1:find("^<" .. TributeLoot.title .. ">") then
       return true
    end
 end
@@ -710,29 +702,29 @@ function SlashHandler(options)
    local self = TributeLoot
    local command, param1 = self:GetArgs(options:lower(), 2)
 
-   if ("link" == command) or ("l" == command) then
+   if (L["link"] == command) or ("l" == command) then
       LinkLoot()
-   elseif ("results" == command) or ("r" == command) then
+   elseif (L["results"] == command) or ("r" == command) then
       if (nil ~= param1) then
          param1 = tonumber(param1)
          PrintDetailedResults(param1)
       else
          PrintOverallLootResults()
       end
-   elseif ("clear" == command) then
+   elseif (L["clear"] == command) then
       if (true == ClearItems()) then
-		   self:Print("Previous results were cleared.")
+		   self:Print(L["Previous results were cleared."])
       else
-         self:Print("Could not clear previous results.")
+         self:Print(L["Could not clear previous results."])
       end
-   elseif ("options" == command) or ("o" == command) then
+   elseif (L["options"] == command) or ("o" == command) then
       self:ShowConfig()
    else
       self:Print(self.version)
-      self:Print("/tl link")
-      self:Print("/tl results [#]")
-      self:Print("/tl clear")
-      self:Print("/tl options")
+      self:Print("/tl " .. L["link"])
+      self:Print("/tl " .. L["results"] .. " [#]")
+      self:Print("/tl " .. L["clear"])
+      self:Print("/tl " .. L["options"])
    end
 end
 
@@ -744,7 +736,7 @@ function TributeLoot:SetupOptions()
    LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("TributeLoot", options)
 
    self.optionsFrames = {}
-	self.optionsFrames.general = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("TributeLoot", "TributeLoot", nil, "General")
+	self.optionsFrames.general = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("TributeLoot", "TributeLoot", nil, L["General"])
 end
 
 
