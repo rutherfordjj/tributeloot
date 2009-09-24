@@ -192,6 +192,7 @@ function IsIgnoredItem(itemId)
       (43954 == itemId) or   -- Reins of the Twilight Drake
       (43952 == itemId) or   -- Reins of the Azure Drake
       (43959 == itemId) or   -- Reins of the Grand Black War Mammoth
+      (49636 == itemId) or   -- Reins of the Onyxian Drake
       (45693 == itemId) or   -- Mimiron's Head
       (45506 == itemId) or   -- Archivum Data Disc (Normal)
       (45857 == itemId) or   -- Archivum Data Disc (Heroic)
