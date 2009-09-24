@@ -5,12 +5,13 @@
 --          Website: http://www.tributeguild.net
 --
 --          Created: March 11, 2009
---    Last Modified: September 23, 2009
+--    Last Modified: September 24, 2009
 -------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-3.0", "AceTimer-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
 TributeLoot.title = "TributeLoot"
-TributeLoot.version = L["Version"] .. " 1.1.6"
+TributeLoot.version = L["Version"] .. " 1.1.7"
+
 
 -------------------------------------------------------
 -- Global Variables
@@ -56,8 +57,8 @@ local options = {
       General = {
          order = 1,
          type = "group",
-         name = L["General"],
-         desc = L["General"],
+         name = "General",
+         desc = "General",
          args = {
             CountdownSeconds = {
                type = "range",
@@ -737,15 +738,19 @@ function TributeLoot:SetupOptions()
    LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("TributeLoot", options)
 
    self.optionsFrames = {}
-	self.optionsFrames.general = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("TributeLoot", "TributeLoot", nil, L["General"])
+	self.optionsFrames.general = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("TributeLoot", "TributeLoot", nil, "General")
 end
 
 
 -------------------------------------------------------
--- Show the option window
+-- Show the options window
 -------------------------------------------------------
 function TributeLoot:ShowConfig()
-	InterfaceOptionsFrame_OpenToCategory(self.optionsFrames.general)
+   if (nil ~= self.optionsFrames.general) then
+      InterfaceOptionsFrame_OpenToCategory(self.optionsFrames.general)
+   else
+      self:Print("Error showing options.")
+   end
 end
 
 
