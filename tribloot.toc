@@ -1,5 +1,5 @@
 ## Author: Euthymius
-## Version: 1.1.6
+## Version: 1.1.7
 ## Interface: 30200
 ## Title: TributeLoot |cff7fff7f -Ace3-|r
 ## Notes: Tool to assist the Tribute loot system
@@ -7,4 +7,5 @@
 ## Dependencies:
 embeds.xml
 locales\enUS.lua
+locales\deDE.lua
 tribloot.lua
