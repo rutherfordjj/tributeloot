@@ -10,7 +10,7 @@
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-3.0", "AceTimer-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
 TributeLoot.title = "TributeLoot"
-TributeLoot.version = L["Version"] .. " 1.1.5"
+TributeLoot.version = L["Version"] .. " 1.1.6"
 
 -------------------------------------------------------
 -- Global Variables
@@ -531,7 +531,7 @@ function PrintDetailedResults(index)
 
       for i, v in ipairs(gItemListTable[index].InList) do
          if (nil == v.ExtraInfo) then
-            resultMessage = L["%s {unknown} for %s"]:format(v.PlayerName, v.ExtraInfo, L["mainspec"])
+            resultMessage = L["%s {unknown} for %s"]:format(v.PlayerName, L["mainspec"])
          elseif not (v.ExtraInfo:match("%D+")) then
             resultMessage = L["%s bidding %s for %s"]:format(v.PlayerName, v.ExtraInfo, L["mainspec"])
          else
@@ -544,7 +544,7 @@ function PrintDetailedResults(index)
 
       for i, v in ipairs(gItemListTable[index].RotList) do
          if (nil == v.ExtraInfo) then
-            resultMessage = L["%s {unknown} for %s."]:format(v.PlayerName, v.ExtraInfo, L["offspec"])
+            resultMessage = L["%s {unknown} for %s."]:format(v.PlayerName, L["offspec"])
          elseif not (v.ExtraInfo:match("%D+")) then
             resultMessage = L["%s bidding %s for %s"]:format(v.PlayerName, v.ExtraInfo, L["offspec"])
          else
