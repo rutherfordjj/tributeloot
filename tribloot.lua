@@ -5,12 +5,12 @@
 --          Website: http://www.tributeguild.net
 --
 --          Created: March 11, 2009
---    Last Modified: September 24, 2009
+--    Last Modified: September 28, 2009
 -------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-3.0", "AceTimer-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
 TributeLoot.title = "TributeLoot"
-TributeLoot.version = L["Version"] .. " 1.1.7"
+TributeLoot.version = L["Version"] .. " 1.1.8"
 
 
 -------------------------------------------------------
@@ -214,14 +214,16 @@ end
 function IsRecipeItem(itemName)
    local isRecipe = false
 
-   if itemName:find(L["Design:"]) or
-      itemName:find(L["Formula:"]) or
-      itemName:find(L["Pattern:"]) or
-      itemName:find(L["Plans:"]) or
-      itemName:find(L["Recipe:"]) or
-      itemName:find(L["Schematic:"]) then
+   if (nil ~= itemName) then
+      if (itemName:find(L["Design:"])) or
+         (itemName:find(L["Formula:"])) or
+         (itemName:find(L["Pattern:"])) or
+         (itemName:find(L["Plans:"])) or
+         (itemName:find(L["Recipe:"])) or
+         (itemName:find(L["Schematic:"])) then
 
-      isRecipe = true;
+         isRecipe = true;
+      end
    end
 
    return isRecipe
@@ -241,6 +243,7 @@ function GetItemId(itemLink)
       itemId = select(3, itemLink:find("item:(%d+):"))  
 
       if (nil ~= itemId) then
+         --Convert to numeric format
          itemId = tonumber(itemId:trim())
       end
    end
@@ -333,30 +336,6 @@ end
 
 
 -------------------------------------------------------
--- Checks if a player name exists in a list
---
--- @return true if player exists, false otherwise
---         table index if exists, nil otherwise
--------------------------------------------------------
-function DoesPlayerExistInList(list, playerName)
-   local playerExists = false
-   local location = nil
-
-   if (nil ~= list) and (nil ~= playerName) then
-      for index, value in ipairs(list) do
-         if (value.PlayerName == playerName) then
-            playerExists = true
-            location = index
-            break
-         end
-      end
-   end
-
-   return playerExists, location
-end
-
-
--------------------------------------------------------
 -- Adds a player to a list
 --
 -- @return SUCCESS if successful
@@ -365,14 +344,15 @@ end
 function AddPlayerToList(list, playerName, extraInfo)
    local status = eStatusResults.PLAYER_ALREADY_EXISTS
 
-   if not DoesPlayerExistInList(list, playerName) then
-      local entry = {
-         PlayerName = playerName,
-         ExtraInfo = extraInfo
-      }
-
-      table.insert(list, entry)
-      status = eStatusResults.SUCCESS
+   if (nil ~= playerName) and (nil ~= list) then
+      --Check if the player entry already exists
+      if (nil == list[playerName]) then
+         list[playerName] = {
+            Active = true,           -- mostly a placeholder variable
+            ExtraInfo = extraInfo,   -- nil is a valid value
+         }
+         status = eStatusResults.SUCCESS
+      end
    end
 
    return status
@@ -387,11 +367,13 @@ end
 -------------------------------------------------------
 function RemovePlayerFromList(list, playerName)
    local status = eStatusResults.PLAYER_NOT_FOUND
-   local playerExists, location = DoesPlayerExistInList(list, playerName)
 
-   if (true == playerExists) and (nil ~= location) then
-      table.remove(list, location)
-      status = eStatusResults.SUCCESS
+   if (nil ~= playerName) and (nil ~= list) then
+      --Check if the player entry exists
+      if (nil ~= list[playerName]) then
+         list[playerName] = nil
+         status = eStatusResults.SUCCESS
+      end
    end
 
    return status
@@ -494,13 +476,13 @@ function PrintOverallLootResults()
       for i,v in ipairs(gItemListTable) do
          resultMessage = v.ItemLink
          counter = 0
-         for index, value in ipairs(v.InList) do
-            resultMessage = resultMessage .. " " .. value.PlayerName .. " "
+         for key, value in pairs(v.InList) do
+            resultMessage = resultMessage .. " " .. key .. " "
             counter = counter + 1
          end
 
-         for index, value in ipairs(v.RotList) do
-            resultMessage = resultMessage .. " (" .. value.PlayerName .. ") "
+         for key, value in pairs(v.RotList) do
+            resultMessage = resultMessage .. " (" .. key .. ") "
             counter = counter + 1
          end
 
@@ -531,26 +513,26 @@ function PrintDetailedResults(index)
       rot = true
       SendChatMessage("<" .. TributeLoot.title .. "> " .. L["Detailed Results for %s"]:format(gItemListTable[index].ItemLink), channel)
 
-      for i, v in ipairs(gItemListTable[index].InList) do
+      for k, v in pairs(gItemListTable[index].InList) do
          if (nil == v.ExtraInfo) then
-            resultMessage = L["%s {unknown} for %s"]:format(v.PlayerName, L["mainspec"])
+            resultMessage = L["%s {unknown} for %s"]:format(k, L["mainspec"])
          elseif not (v.ExtraInfo:match("%D+")) then
-            resultMessage = L["%s bidding %s for %s"]:format(v.PlayerName, v.ExtraInfo, L["mainspec"])
+            resultMessage = L["%s bidding %s for %s"]:format(k, v.ExtraInfo, L["mainspec"])
          else
-            resultMessage = L["%s replacing %s for %s"]:format(v.PlayerName, v.ExtraInfo, L["mainspec"])
+            resultMessage = L["%s replacing %s for %s"]:format(k, v.ExtraInfo, L["mainspec"])
          end
 
          rot = false
          SendChatMessage(resultMessage, channel)
       end
 
-      for i, v in ipairs(gItemListTable[index].RotList) do
+      for k, v in pairs(gItemListTable[index].RotList) do
          if (nil == v.ExtraInfo) then
-            resultMessage = L["%s {unknown} for %s."]:format(v.PlayerName, L["offspec"])
+            resultMessage = L["%s {unknown} for %s."]:format(k, L["offspec"])
          elseif not (v.ExtraInfo:match("%D+")) then
-            resultMessage = L["%s bidding %s for %s"]:format(v.PlayerName, v.ExtraInfo, L["offspec"])
+            resultMessage = L["%s bidding %s for %s"]:format(k, v.ExtraInfo, L["offspec"])
          else
-            resultMessage = L["%s replacing %s for %s"]:format(v.PlayerName, v.ExtraInfo, L["offspec"])
+            resultMessage = L["%s replacing %s for %s"]:format(k, v.ExtraInfo, L["offspec"])
          end
 
          rot = false
@@ -575,19 +557,21 @@ end
 function PrintRaidMessage(message)
    local channel
 
-   if (GetNumRaidMembers() > 0) then
-      if IsRaidLeader() or IsRaidOfficer() then
-         channel = "RAID_WARNING"
+   if (nil ~= message) then
+      if (GetNumRaidMembers() > 0) then
+         if IsRaidLeader() or IsRaidOfficer() then
+            channel = "RAID_WARNING"
+         else
+            channel = "RAID"
+         end
+      elseif (GetNumPartyMembers() > 0) then
+         channel = "PARTY"
       else
-         channel = "RAID"
+         channel = "SAY"
       end
-   elseif (GetNumPartyMembers() > 0) then
-      channel = "PARTY"
-   else
-      channel = "SAY"
-   end
 
-   SendChatMessage(message, channel)
+      SendChatMessage(message, channel)
+   end
 end
 
 
