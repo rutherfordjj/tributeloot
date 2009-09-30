@@ -1,11 +1,19 @@
 ## Author: Euthymius
-## Version: 1.1.8
+## Version: 1.1.9
 ## Interface: 30200
 ## Title: TributeLoot |cff7fff7f -Ace3-|r
-## Notes: Tool to assist the Tribute loot system
+## Notes: Loot management tool
 ## SavedVariables: TLDB
 ## Dependencies:
+
+# External Libraries
+#@no-lib-strip@
 embeds.xml
+#@end-no-lib-strip@
+
+# Localization
 locales\enUS.lua
 locales\deDE.lua
+
+# Main
 tribloot.lua
