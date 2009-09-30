@@ -5,7 +5,7 @@
 --          Website: http://www.tributeguild.net
 --
 --          Created: March 11, 2009
---    Last Modified: September 28, 2009
+--    Last Modified: September 30, 2009
 -------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-3.0", "AceTimer-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
@@ -43,7 +43,42 @@ local defaults = {
       ItemQualityFilter = 4,
       ResultsChannel    = "OFFICER",
       LinkRecipes       = false,
-   }
+      IgnoredItems      = {},
+   },
+}
+
+
+-------------------------------------------------------
+-- Adding an item id to this table will always prevent it
+-- from being linked, regardless of the options.
+-------------------------------------------------------
+local AlwaysIgnore = {
+   [40752] = true, --Emblem of Heroism
+   [40753] = true, --Emblem of Valor
+   [45624] = true, --Emblem of Conquest
+   [47241] = true, --Emblem of Triumph
+}
+
+
+-------------------------------------------------------
+-- Adding an item id to the table will add it to the 
+-- menu as a toggled ignored item
+-------------------------------------------------------
+local IgnoredOptions = {
+   [43954] = L["Reins of the Twilight Drake"],
+   [43952] = L["Reins of the Azure Drake"],
+   [43959] = L["Reins of the Grand Black War Mammoth"],
+   [49636] = L["Reins of the Onyxian Drake"],
+   [45693] = L["Mimiron's Head"],
+   [43345] = L["Dragon Hide Bag"],
+   [49294] = L["Ashen Sack of Gems"],
+   [49644] = L["Head of Onyxia (Alliance)"],
+   [49643] = L["Head of Onyxia (Horde)"],
+   [49295] = L["Enlarged Onyxia Hide Backpack"],
+   [43346] = L["Large Satchel of Spoils"],
+   [45506] = L["Archivum Data Disc (10-man)"],
+   [45857] = L["Archivum Data Disc (25-man)"],
+   [45038] = L["Fragment of Val'anyr"],
 }
 
 
@@ -64,7 +99,7 @@ local options = {
                type = "range",
                name = L["Countdown Seconds"],
                desc = L["Sets the number of seconds to countdown after loot is linked"],
-               order = 2,
+               order = 1,
                width = "double",
                min = 35,
                max = 120,
@@ -80,7 +115,7 @@ local options = {
                type = "select",
                name = L["Item Quality"],
                desc = L["Sets the minimum item quality to link as loot"],
-               order = 3,
+               order = 2,
                width = "double",
                values = {
                   [0] = ITEM_QUALITY_COLORS[0].hex .. L["Poor"] .. "|r",
@@ -98,7 +133,7 @@ local options = {
             },
             ResultsChannel = {
                type = "select",
-               order = 4,
+               order = 3,
                width = "double",
                name = L["Results Channel"],
                desc = L["Determines where loot results are printed"],
@@ -116,17 +151,100 @@ local options = {
                   gOptionsDatabase.ResultsChannel = v
                end,
             },
-            LinkRecipes = {
+         },
+      },
+      IgnoreMenu = {
+         order = 2,
+         type = "group",
+         name = L["Ignored Items"],
+         desc = L["Ignored Items"],
+         args = {
+            IgnoredList = {
+               type = "multiselect",
+               order = 1,
+               name = L["Ignored List"],
+               desc = L["Checking prevents items from being linked as loot"],
+               values = IgnoredOptions,
+               width = "double",
+               get = function(info, v)
+                  return gOptionsDatabase.IgnoredItems[v]
+               end,
+               set = function(info, k, v)
+                  if(v == false) then
+                     gOptionsDatabase.IgnoredItems[k] = nil
+                  else
+                     gOptionsDatabase.IgnoredItems[k] = true
+                  end
+               end,
+            },
+            AddCustomItem = {
+               type = "input",
+               order = 2,
+               name = L["Add Custom Item ID"],
+               desc = L["Adds a custom item ID to the ignored list"],
+               usage = L["<Item ID>"],
+               get = false,
+               set = function(info, v)
+                  v = v:trim()
+                  if not (v:match("%D+")) then
+                     local itemId = tonumber(v)
+                     if(true ~= gOptionsDatabase.IgnoredItems[itemId]) then
+                        gOptionsDatabase.IgnoredItems[itemId] = true
+                        TributeLoot:Print(string.format(L["Item %d was added to the ignore list."], itemId))
+                     else
+                        TributeLoot:Print(string.format(L["Item %d is already ignored."], itemId))
+                     end
+                  else
+                     TributeLoot:Print(L["Item IDs can only contain numeric characters."])
+                  end
+               end,
+            },
+            RemoveCustomItem = {
+               type = "input",
+               order = 3,
+               name = L["Remove Custom Item ID"],
+               desc = L["Removes an item ID from ignored list"],
+               usage = L["<Item ID>"],
+               get = false,
+               set = function(info, v)
+                  v = v:trim()
+                  if not (v:match("%D+")) then
+                     local itemId = tonumber(v)
+                     if (nil ~= gOptionsDatabase.IgnoredItems[itemId]) then
+                        TributeLoot:Print(string.format(L["Item %d was removed from the ignore list."], itemId))
+                        gOptionsDatabase.IgnoredItems[itemId] = nil
+                     else
+                        TributeLoot:Print(string.format(L["Item %d was not on the ignore list."], itemId))
+                     end
+                  else
+                     TributeLoot:Print(L["Item IDs can only contain numeric characters."])
+                  end
+               end,
+            },
+            ListIgnoredItems = {
+               type = "execute",
+               order = 4,
+               name = L["List Ignored Items"],
+               desc = L["Prints the custom ignore list"],
+               func = function()
+                  for k,v in pairs(gOptionsDatabase.IgnoredItems) do
+                     if (true == v) and (nil == IgnoredOptions[k]) then
+                        TributeLoot:Print(k)
+                     end
+                  end
+               end,
+            },
+            IgnoreRecipes = {
                type = "toggle",
                order = 5,
                width = "double",
-               name = L["Link Recipes"],
+               name = L["Ignore Recipes"],
                desc = L["Determines if recipes will be linked as loot"],
                get = function()
-                  return gOptionsDatabase.LinkRecipes
+                  return not gOptionsDatabase.LinkRecipes
                end,
                set = function(info, v)
-                  gOptionsDatabase.LinkRecipes = v
+                  gOptionsDatabase.LinkRecipes = not v
                end,
             },
          },
@@ -179,27 +297,10 @@ end
 function IsIgnoredItem(itemId)
    local isIgnored = false
 
-   --Add item ids to the if-statement below to make them ignored
-   if (40752 == itemId) or   -- Emblem of Heroism
-      (40753 == itemId) or   -- Emblem of Valor
-      (45624 == itemId) or   -- Emblem of Conquest
-      (47241 == itemId) or   -- Emblem of Triumph
-      (43345 == itemId) or   -- Dragon Hide Bag
-      (49294 == itemId) or   -- Ashen Sack of Gems
-      (49643 == itemId) or   -- Head of Onyxia (Horde)
-      (49644 == itemId) or   -- Head of Onyxia (Alliance)
-      (49295 == itemId) or   -- Enlarged Onyxia Hide Backpack
-      (43346 == itemId) or   -- Large Satchel of Spoils
-      (43954 == itemId) or   -- Reins of the Twilight Drake
-      (43952 == itemId) or   -- Reins of the Azure Drake
-      (43959 == itemId) or   -- Reins of the Grand Black War Mammoth
-      (49636 == itemId) or   -- Reins of the Onyxian Drake
-      (45693 == itemId) or   -- Mimiron's Head
-      (45506 == itemId) or   -- Archivum Data Disc (Normal)
-      (45857 == itemId) or   -- Archivum Data Disc (Heroic)
-      (45038 == itemId) then -- Fragment of Val'anyr
-
-      isIgnored = true
+   if (nil ~= itemId) then
+      if (true == gOptionsDatabase.IgnoredItems[itemId]) or (true == AlwaysIgnore[itemId]) then
+         isIgnored = true
+      end
    end
 
    return isIgnored
@@ -243,7 +344,6 @@ function GetItemId(itemLink)
       itemId = select(3, itemLink:find("item:(%d+):"))  
 
       if (nil ~= itemId) then
-         --Convert to numeric format
          itemId = tonumber(itemId:trim())
       end
    end
@@ -254,9 +354,7 @@ end
 
 -------------------------------------------------------
 -- Adds a new item entry to the table at the specified index
---
 -- If the item already exists in the table, this will just increment the count.
---
 -- The item will not be added if IsValidItem() returns false
 --
 -- @return true if item is added or count updated, false otherwise
@@ -269,14 +367,14 @@ function AddItem(itemLink)
       local alreadyExists, location = DoesItemEntryExist(itemId)
 
       if (true == alreadyExists) then
+         -- Increment the item count
          if (nil ~= location) and (nil ~= gItemListTable[location]) then
             gItemListTable[location].Count = gItemListTable[location].Count + 1
-
             retVal = true
          end
       elseif (true == IsValidItem(itemLink)) then
          -- Add the item entry to the table
-         gItemListTable[#gItemListTable + 1] = {
+          local itemEntry = {
             ItemLink = itemLink,
             ItemId = GetItemId(itemLink),
             Count = 1,
@@ -284,6 +382,7 @@ function AddItem(itemLink)
             RotList = {},
          }
 
+         table.insert(gItemListTable, itemEntry)
          retVal = true
       end
    end
@@ -348,7 +447,7 @@ function AddPlayerToList(list, playerName, extraInfo)
       --Check if the player entry already exists
       if (nil == list[playerName]) then
          list[playerName] = {
-            Active = true,           -- mostly a placeholder variable
+            Active = true,           -- placeholder variable
             ExtraInfo = extraInfo,   -- nil is a valid value
          }
          status = eStatusResults.SUCCESS
@@ -515,7 +614,7 @@ function PrintDetailedResults(index)
 
       for k, v in pairs(gItemListTable[index].InList) do
          if (nil == v.ExtraInfo) then
-            resultMessage = L["%s {unknown} for %s"]:format(k, L["mainspec"])
+            resultMessage = string.format("%s %s", k, L["mainspec"])
          elseif not (v.ExtraInfo:match("%D+")) then
             resultMessage = L["%s bidding %s for %s"]:format(k, v.ExtraInfo, L["mainspec"])
          else
@@ -528,7 +627,7 @@ function PrintDetailedResults(index)
 
       for k, v in pairs(gItemListTable[index].RotList) do
          if (nil == v.ExtraInfo) then
-            resultMessage = L["%s {unknown} for %s."]:format(k, L["offspec"])
+            resultMessage = string.format("%s %s", k, L["offspec"])
          elseif not (v.ExtraInfo:match("%D+")) then
             resultMessage = L["%s bidding %s for %s"]:format(k, v.ExtraInfo, L["offspec"])
          else
@@ -606,7 +705,7 @@ function WhisperHandler(ChatFrameSelf, event, arg1, arg2)
 
             --Send whisper response
             if (eStatusResults.SUCCESS == status) then
-               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed"]:format(L["[IN]"], gItemListTable[itemIndex].ItemLink, itemIndex), "WHISPER", nil, player)
+               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed."]:format(L["[IN]"], gItemListTable[itemIndex].ItemLink, itemIndex), "WHISPER", nil, player)
             elseif (eStatusResults.PLAYER_ALREADY_EXISTS == status) then
                SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[IN]"], gItemListTable[itemIndex].ItemLink), "WHISPER", nil, player)
             elseif (eStatusResults.INVALID_ITEM == status) then
@@ -622,7 +721,7 @@ function WhisperHandler(ChatFrameSelf, event, arg1, arg2)
 
             --Send whisper response
             if (eStatusResults.SUCCESS == status) then
-               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed"]:format(L["[ROT]"], gItemListTable[itemIndex].ItemLink, itemIndex), "WHISPER", nil, player)
+               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed."]:format(L["[ROT]"], gItemListTable[itemIndex].ItemLink, itemIndex), "WHISPER", nil, player)
             elseif (eStatusResults.PLAYER_ALREADY_EXISTS == status) then
                SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[ROT]"], gItemListTable[itemIndex].ItemLink), "WHISPER", nil, player)
             elseif (eStatusResults.INVALID_ITEM == status) then
@@ -722,7 +821,8 @@ function TributeLoot:SetupOptions()
    LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("TributeLoot", options)
 
    self.optionsFrames = {}
-	self.optionsFrames.general = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("TributeLoot", "TributeLoot", nil, "General")
+	self.optionsFrames.general = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("TributeLoot", self.title, nil, "General")
+   self.optionsFrames.ignoreList = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("TributeLoot", "Ignored Items", "TributeLoot", "IgnoreMenu")
 end
 
 
