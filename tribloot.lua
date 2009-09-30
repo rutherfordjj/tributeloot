@@ -10,7 +10,7 @@
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-3.0", "AceTimer-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
 TributeLoot.title = "TributeLoot"
-TributeLoot.version = L["Version"] .. " 1.1.8"
+TributeLoot.version = L["Version"] .. " 1.1.9"
 
 
 -------------------------------------------------------
