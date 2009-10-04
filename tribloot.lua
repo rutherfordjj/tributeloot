@@ -5,12 +5,12 @@
 --          Website: http://www.tributeguild.net
 --
 --          Created: March 11, 2009
---    Last Modified: September 30, 2009
+--    Last Modified: October 04, 2009
 -------------------------------------------------------
-local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-3.0", "AceTimer-3.0")
+local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-3.0", "AceTimer-3.0", "AceEvent-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
 TributeLoot.title = "TributeLoot"
-TributeLoot.version = L["Version"] .. " 1.1.9"
+TributeLoot.version = L["Version"] .. " 1.1.10"
 
 
 -------------------------------------------------------
@@ -49,36 +49,36 @@ local defaults = {
 
 
 -------------------------------------------------------
--- Adding an item id to this table will always prevent it
+-- Adding an item ID to this table will always prevent it
 -- from being linked, regardless of the options.
 -------------------------------------------------------
 local AlwaysIgnore = {
-   [40752] = true, --Emblem of Heroism
-   [40753] = true, --Emblem of Valor
-   [45624] = true, --Emblem of Conquest
-   [47241] = true, --Emblem of Triumph
+   [40752] = true, -- Emblem of Heroism
+   [40753] = true, -- Emblem of Valor
+   [45624] = true, -- Emblem of Conquest
+   [47241] = true, -- Emblem of Triumph
 }
 
 
 -------------------------------------------------------
--- Adding an item id to the table will add it to the 
--- menu as a toggled ignored item
+-- Adding an item ID to this table will add it to the 
+-- menu as a checkable ignored item.
 -------------------------------------------------------
 local IgnoredOptions = {
-   [43954] = L["Reins of the Twilight Drake"],
-   [43952] = L["Reins of the Azure Drake"],
-   [43959] = L["Reins of the Grand Black War Mammoth"],
-   [49636] = L["Reins of the Onyxian Drake"],
-   [45693] = L["Mimiron's Head"],
    [43345] = L["Dragon Hide Bag"],
-   [49294] = L["Ashen Sack of Gems"],
-   [49644] = L["Head of Onyxia (Alliance)"],
-   [49643] = L["Head of Onyxia (Horde)"],
-   [49295] = L["Enlarged Onyxia Hide Backpack"],
    [43346] = L["Large Satchel of Spoils"],
-   [45506] = L["Archivum Data Disc (10-man)"],
-   [45857] = L["Archivum Data Disc (25-man)"],
+   [43952] = L["Reins of the Azure Drake"],
+   [43954] = L["Reins of the Twilight Drake"],
+   [43959] = L["Reins of the Grand Black War Mammoth"],
    [45038] = L["Fragment of Val'anyr"],
+   [45506] = L["Archivum Data Disc (10-man)"],
+   [45693] = L["Mimiron's Head"],
+   [45857] = L["Archivum Data Disc (25-man)"],
+   [49294] = L["Ashen Sack of Gems"],
+   [49295] = L["Enlarged Onyxia Hide Backpack"],
+   [49636] = L["Reins of the Onyxian Drake"],
+   [49643] = L["Head of Onyxia (Horde)"],
+   [49644] = L["Head of Onyxia (Alliance)"],
 }
 
 
@@ -447,8 +447,8 @@ function AddPlayerToList(list, playerName, extraInfo)
       --Check if the player entry already exists
       if (nil == list[playerName]) then
          list[playerName] = {
-            Active = true,           -- placeholder variable
-            ExtraInfo = extraInfo,   -- nil is a valid value
+            Active = true,
+            ExtraInfo = extraInfo,
          }
          status = eStatusResults.SUCCESS
       end
@@ -526,12 +526,18 @@ end
 -------------------------------------------------------
 function StartCountDown()
    local self = TributeLoot
-   local countdown = gOptionsDatabase.CountdownSeconds -- NOTE:  This value should always be greater than 30
+   local countdown = gOptionsDatabase.CountdownSeconds -- NOTE: This value should always be greater than 30
 
    gLootInProgress = true
-   ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER", WhisperHandler)
-   ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER_INFORM", WhisperInformHandler)
 
+   --Process the whisper event independent of the chat frames so it is only handled once
+   self:RegisterEvent("CHAT_MSG_WHISPER")
+
+   --Hide the mod messages from the chat frames
+   ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER", WhisperFilter)
+   ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER_INFORM", WhisperInformFilter)
+
+   --Schedule the countdown
    self:ScheduleTimer(PrintRaidMessage, countdown - 30, L["Last call in 30 seconds"])
    self:ScheduleTimer(PrintRaidMessage, countdown - 15, L["15"])
    self:ScheduleTimer(PrintRaidMessage, countdown - 10, L["10"])
@@ -546,12 +552,15 @@ end
 
 
 -------------------------------------------------------
--- Notifies the mod that loot is finished, so stop
--- handling whispers and print the results
+-- Notifies the mod that loot is finished,
+-- so stop handling whispers and print the results
 -------------------------------------------------------
 function LastCall()
-   ChatFrame_RemoveMessageEventFilter("CHAT_MSG_WHISPER", WhisperHandler)
-   ChatFrame_RemoveMessageEventFilter("CHAT_MSG_WHISPER_INFORM", WhisperInformHandler)
+   local self = TributeLoot
+
+   self:UnregisterEvent("CHAT_MSG_WHISPER")
+   ChatFrame_RemoveMessageEventFilter("CHAT_MSG_WHISPER", WhisperFilter)
+   ChatFrame_RemoveMessageEventFilter("CHAT_MSG_WHISPER_INFORM", WhisperInformFilter)
    gLootInProgress = false
    PrintOverallLootResults()
 end
@@ -675,107 +684,112 @@ end
 
 
 -------------------------------------------------------
--- Handles incoming whispers
+-- Process whispers sent to the mod
 -------------------------------------------------------
-function WhisperHandler(ChatFrameSelf, event, arg1, arg2)
+function TributeLoot:CHAT_MSG_WHISPER(event, message, sender)
    local self = TributeLoot
-   local whisperMsg = arg1
-   local player = arg2
    local status = eStatusResults.NONE
 
-   --Do not process messages received from the mod
-   if not whisperMsg:find("^<" .. TributeLoot.title .. ">") then
-      local option, itemIndex, extraInfo = self:GetArgs(whisperMsg, 3)
+   if (nil ~= message) and (nil ~= sender) then
+      local option, itemIndex, extraInfo = self:GetArgs(message, 3)
 
-      if (nil ~= option) and (nil~= player) then
+      if (nil ~= option) then
          option = option:lower()
+      end
 
-         if (nil ~= itemIndex) then
-            --Need to convert itemIndex from string to number to index the array
-            itemIndex = tonumber(itemIndex:trim())
+      if (nil ~= itemIndex) then
+         itemIndex = tonumber(itemIndex:trim())
+      end
+
+      if ("in" == option) then
+         --Process the command
+         if (nil ~= gItemListTable[itemIndex]) then
+            status = AddPlayerToList(gItemListTable[itemIndex].InList, sender, extraInfo)
+         else
+            status = eStatusResults.INVALID_ITEM
          end
 
-         if ("in" == option) then
-            --Process the command
-            if (nil ~= gItemListTable[itemIndex]) then
-               status = AddPlayerToList(gItemListTable[itemIndex].InList, player, extraInfo)
-            else
-               status = eStatusResults.INVALID_ITEM
-            end
+         --Send whisper response
+         if (eStatusResults.SUCCESS == status) then
+            SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed."]:format(L["[IN]"], gItemListTable[itemIndex].ItemLink, itemIndex), "WHISPER", nil, sender)
+         elseif (eStatusResults.PLAYER_ALREADY_EXISTS == status) then
+            SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[IN]"], gItemListTable[itemIndex].ItemLink), "WHISPER", nil, sender)
+         elseif (eStatusResults.INVALID_ITEM == status) then
+            SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], "WHISPER", nil, sender)
+         end
+      elseif ("rot" == option) then
+         --Process the command
+         if (nil ~= gItemListTable[itemIndex]) then
+            status = AddPlayerToList(gItemListTable[itemIndex].RotList, sender, extraInfo)
+         else
+            status = eStatusResults.INVALID_ITEM
+         end
 
-            --Send whisper response
+         --Send whisper response
+         if (eStatusResults.SUCCESS == status) then
+            SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed."]:format(L["[ROT]"], gItemListTable[itemIndex].ItemLink, itemIndex), "WHISPER", nil, sender)
+         elseif (eStatusResults.PLAYER_ALREADY_EXISTS == status) then
+            SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[ROT]"], gItemListTable[itemIndex].ItemLink), "WHISPER", nil, sender)
+         elseif (eStatusResults.INVALID_ITEM == status) then
+            SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], "WHISPER", nil, sender)
+         end
+      elseif ("out" == option) then
+         local listString = ""
+
+         --Process the command
+         if (nil ~= gItemListTable[itemIndex]) then
+            status = RemovePlayerFromList(gItemListTable[itemIndex].InList, sender)
             if (eStatusResults.SUCCESS == status) then
-               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed."]:format(L["[IN]"], gItemListTable[itemIndex].ItemLink, itemIndex), "WHISPER", nil, player)
-            elseif (eStatusResults.PLAYER_ALREADY_EXISTS == status) then
-               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[IN]"], gItemListTable[itemIndex].ItemLink), "WHISPER", nil, player)
-            elseif (eStatusResults.INVALID_ITEM == status) then
-               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], "WHISPER", nil, player)
-            end
-         elseif ("rot" == option) then
-            --Process the command
-            if (nil ~= gItemListTable[itemIndex]) then
-               status = AddPlayerToList(gItemListTable[itemIndex].RotList, player, extraInfo)
-            else
-               status = eStatusResults.INVALID_ITEM
+               listString = L["[IN]"]
             end
 
-            --Send whisper response
-            if (eStatusResults.SUCCESS == status) then
-               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed."]:format(L["[ROT]"], gItemListTable[itemIndex].ItemLink, itemIndex), "WHISPER", nil, player)
-            elseif (eStatusResults.PLAYER_ALREADY_EXISTS == status) then
-               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[ROT]"], gItemListTable[itemIndex].ItemLink), "WHISPER", nil, player)
-            elseif (eStatusResults.INVALID_ITEM == status) then
-               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], "WHISPER", nil, player)
-            end
-         elseif ("out" == option) then
-            local listString = ""
-
-            --Process the command
-            if (nil ~= gItemListTable[itemIndex]) then
-               status = RemovePlayerFromList(gItemListTable[itemIndex].InList, player)
-               if (eStatusResults.SUCCESS == status) then
-                  listString = L["[IN]"]
+            status = RemovePlayerFromList(gItemListTable[itemIndex].RotList, sender)
+            if(eStatusResults.SUCCESS == status) then
+               --If the player was also removed from the [IN] list, then append "and"
+               if ("" ~= listString) then
+                  listString = listString .. " " .. L["and"] .. " "
                end
 
-               status = RemovePlayerFromList(gItemListTable[itemIndex].RotList, player)
-               if(eStatusResults.SUCCESS == status) then
-                  --If the player was also removed from the [IN] list, then append "and"
-                  if ("" ~= listString) then
-                     listString = listString .. " " .. L["and"] .. " "
-                  end
-
-                  listString = listString .. L["[ROT]"]
-               end
-            else
-               status = eStatusResults.INVALID_ITEM
+               listString = listString .. L["[ROT]"]
             end
+         else
+            status = eStatusResults.INVALID_ITEM
+         end
 
-            --Send whisper response
-            if ("" ~= listString) then
-               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were removed from the %s list for %s."]:format(listString, gItemListTable[itemIndex].ItemLink), "WHISPER", nil, player)
-            elseif (eStatusResults.PLAYER_NOT_FOUND == status) then
-               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are not on the lists for %s, so I cannot remove you."]:format(gItemListTable[itemIndex].ItemLink) , "WHISPER", nil, player)
-            elseif (eStatusResults.INVALID_ITEM == status) then
-               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], "WHISPER", nil, player)
-            end
+         --Send whisper response
+         if ("" ~= listString) then
+            SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were removed from the %s list for %s."]:format(listString, gItemListTable[itemIndex].ItemLink), "WHISPER", nil, sender)
+         elseif (eStatusResults.PLAYER_NOT_FOUND == status) then
+            SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are not on the lists for %s, so I cannot remove you."]:format(gItemListTable[itemIndex].ItemLink) , "WHISPER", nil, sender)
+         elseif (eStatusResults.INVALID_ITEM == status) then
+            SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], "WHISPER", nil, sender)
          end
       end
-   end
-
-   --Do not display whispers if the mod handled it
-   if (eStatusResults.NONE ~= status) then
-      return true
    end
 end
 
 
 -------------------------------------------------------
--- Handles outgoing whispers
+-- Supress whispers handled by the mod
 -------------------------------------------------------
-function WhisperInformHandler(ChatFrameSelf, event, arg1, arg2)
-   --Do not display whispers sent by the mod
-   if arg1:find("^<" .. TributeLoot.title .. ">") then
-      return true
+function WhisperFilter(ChatFrameSelf, event, arg1)
+   if (nil ~= arg1) then
+      local option = TributeLoot:GetArgs(arg1, 1)
+      if ("in" == option) or ("rot" == option) or ("out" == option) then
+         return true
+      end
+   end   
+end
+
+
+-------------------------------------------------------
+-- Supress whispers sent by the mod
+-------------------------------------------------------
+function WhisperInformFilter(ChatFrameSelf, event, arg1)
+   if (nil ~= arg1) then
+      if arg1:find("^<" .. TributeLoot.title .. ">") then
+         return true
+      end
    end
 end
 
