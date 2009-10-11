@@ -1,5 +1,5 @@
-## Author: Euthymius
-## Version: 1.1.10
+﻿## Author: Euthymius
+## Version: 1.1.11
 ## Interface: 30200
 ## Title: TributeLoot |cff7fff7f -Ace3-|r
 ## Notes: Loot management tool
