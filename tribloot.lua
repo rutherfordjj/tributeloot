@@ -1,16 +1,16 @@
--------------------------------------------------------
+﻿-------------------------------------------------------
 --                T R I B U T E L O O T
 -------------------------------------------------------
 --        Author(s): Euthymius
 --          Website: http://www.tributeguild.net
 --
 --          Created: March 11, 2009
---    Last Modified: October 04, 2009
+--    Last Modified: October 11, 2009
 -------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-3.0", "AceTimer-3.0", "AceEvent-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
 TributeLoot.title = "TributeLoot"
-TributeLoot.version = L["Version"] .. " 1.1.10"
+TributeLoot.version = L["Version"] .. " 1.1.11"
 
 
 -------------------------------------------------------
@@ -39,11 +39,12 @@ local eStatusResults = {
 -------------------------------------------------------
 local defaults = {
    profile = {
-      CountdownSeconds  = 45,
-      ItemQualityFilter = 4,
-      ResultsChannel    = "OFFICER",
-      LinkRecipes       = false,
-      IgnoredItems      = {},
+      CountdownSeconds     = 45,
+      ItemQualityFilter    = 4,
+      ResultsChannel       = "OFFICER",
+      CustomResultsChannel = "",
+      LinkRecipes          = false,
+      IgnoredItems         = {},
    },
 }
 
@@ -69,16 +70,17 @@ local IgnoredOptions = {
    [43346] = L["Large Satchel of Spoils"],
    [43952] = L["Reins of the Azure Drake"],
    [43954] = L["Reins of the Twilight Drake"],
-   [43959] = L["Reins of the Grand Black War Mammoth"],
+   [43959] = L["Reins of the Grand Black War Mammoth (A)"],
+   [44083] = L["Reins of the Grand Black War Mammoth (H)"],
    [45038] = L["Fragment of Val'anyr"],
-   [45506] = L["Archivum Data Disc (10-man)"],
+   [45506] = L["Archivum Data Disc (10)"],
    [45693] = L["Mimiron's Head"],
-   [45857] = L["Archivum Data Disc (25-man)"],
+   [45857] = L["Archivum Data Disc (25)"],
    [49294] = L["Ashen Sack of Gems"],
    [49295] = L["Enlarged Onyxia Hide Backpack"],
    [49636] = L["Reins of the Onyxian Drake"],
-   [49643] = L["Head of Onyxia (Horde)"],
-   [49644] = L["Head of Onyxia (Alliance)"],
+   [49643] = L["Head of Onyxia (H)"],
+   [49644] = L["Head of Onyxia (A)"],
 }
 
 
@@ -86,9 +88,9 @@ local IgnoredOptions = {
 -- This table sets up the options GUI
 -------------------------------------------------------
 local options = {
-	type = "group",
+   type = "group",
    name = TributeLoot.title,
-	args = {
+   args = {
       General = {
          order = 1,
          type = "group",
@@ -103,7 +105,7 @@ local options = {
                width = "double",
                min = 35,
                max = 120,
-               step = 1,
+               step = 5,
                get = function()
                   return gOptionsDatabase.CountdownSeconds
                end,
@@ -135,7 +137,7 @@ local options = {
                type = "select",
                order = 3,
                width = "double",
-               name = L["Results Channel"],
+               name = L["Results Location"],
                desc = L["Determines where loot results are printed"],
                values = {
                   ["OFFICER"] = L["Officer"],
@@ -143,12 +145,29 @@ local options = {
                   ["RAID"] = L["Raid"],
                   ["PARTY"] = L["Party"],
                   ["SAY"] = L["Say"],
+                  ["CHANNEL"] = L["Channel"],
                },
                get = function()
                   return gOptionsDatabase.ResultsChannel
                end,
                set = function(info, v)
                   gOptionsDatabase.ResultsChannel = v
+               end,
+            },
+            CustomResultsChannel = {
+               type = "input",
+               order = 4,
+               width = "double",
+               name = L["Channel"],
+               desc = L["Enter the channel name or number where results should print"],
+               hidden = function()
+                  return "CHANNEL" ~= gOptionsDatabase.ResultsChannel
+               end,
+               get = function()
+                  return gOptionsDatabase.CustomResultsChannel
+               end,
+               set = function(info, v)
+                  gOptionsDatabase.CustomResultsChannel = v
                end,
             },
          },
@@ -186,7 +205,7 @@ local options = {
                get = false,
                set = function(info, v)
                   v = v:trim()
-                  if not (v:match("%D+")) then
+                  if not (v:find("%D")) then
                      local itemId = tonumber(v)
                      if(true ~= gOptionsDatabase.IgnoredItems[itemId]) then
                         gOptionsDatabase.IgnoredItems[itemId] = true
@@ -208,7 +227,7 @@ local options = {
                get = false,
                set = function(info, v)
                   v = v:trim()
-                  if not (v:match("%D+")) then
+                  if not (v:find("%D")) then
                      local itemId = tonumber(v)
                      if (nil ~= gOptionsDatabase.IgnoredItems[itemId]) then
                         TributeLoot:Print(string.format(L["Item %d was removed from the ignore list."], itemId))
@@ -249,7 +268,7 @@ local options = {
             },
          },
       },
-	},
+   },
 }
 
 
@@ -567,19 +586,38 @@ end
 
 
 -------------------------------------------------------
+-- Returns where results should print
+-------------------------------------------------------
+function GetResultsChannel()
+   local chatType = gOptionsDatabase.ResultsChannel
+   local channel = nil
+
+   if (chatType == "CHANNEL") then
+      channel = GetChannelName(gOptionsDatabase.CustomResultsChannel)
+   end
+
+   return chatType, channel
+end
+
+
+-------------------------------------------------------
 -- Prints the loot results
 -------------------------------------------------------
 function PrintOverallLootResults()
    local self = TributeLoot
    local resultMessage
    local counter
-   local channel = gOptionsDatabase.ResultsChannel
+   local chatType, channel = GetResultsChannel()
 
    --Do not display the results header if there is nothing to link
    if (true == gLootInProgress) then
       self:Print(L["Cannot print results until Last Call."])
+   elseif (0 == #gItemListTable) then
+      self:Print(L["There are no results to print."])
+   elseif (0 == channel) then
+      self:Print(L["Cannot print results in the specified channel. Join the channel or change the options."])
    elseif(#gItemListTable > 0) then
-      SendChatMessage("<" .. TributeLoot.title .. "> " ..  L["Results"], channel)
+      SendChatMessage("<" .. TributeLoot.title .. "> " ..  L["Results"], chatType, nil, channel)
 
       for i,v in ipairs(gItemListTable) do
          resultMessage = v.ItemLink
@@ -598,10 +636,8 @@ function PrintOverallLootResults()
             resultMessage = resultMessage .. " " .. L["rot"]
          end
 
-         SendChatMessage(resultMessage, channel)
+         SendChatMessage(resultMessage, chatType, nil, channel)
       end
-   else
-      self:Print(L["There are no results to print."])
    end
 end
 
@@ -611,47 +647,49 @@ end
 -------------------------------------------------------
 function PrintDetailedResults(index)
    local self = TributeLoot
-   local channel = gOptionsDatabase.ResultsChannel
+   local chatType, channel = GetResultsChannel()
    local resultsMessage
    local rot
 
    if (true == gLootInProgress) then
       self:Print(L["Cannot print results until Last Call."])
-   elseif (nil ~= index) and (nil ~= gItemListTable[index]) then
+   elseif (nil == index) or (nil == gItemListTable[index]) then
+      self:Print(L["Cannot print detailed results. You did not specify a valid item number."])
+   elseif(0 == channel) then
+      self:Print(L["Cannot print results in the specified channel. Join the channel or change the options."])
+   else
       rot = true
-      SendChatMessage("<" .. TributeLoot.title .. "> " .. L["Detailed Results for %s"]:format(gItemListTable[index].ItemLink), channel)
+      SendChatMessage("<" .. TributeLoot.title .. "> " .. L["Detailed Results for %s"]:format(gItemListTable[index].ItemLink), chatType, nil, channel)
 
       for k, v in pairs(gItemListTable[index].InList) do
          if (nil == v.ExtraInfo) then
             resultMessage = string.format("%s %s", k, L["mainspec"])
-         elseif not (v.ExtraInfo:match("%D+")) then
+         elseif not (v.ExtraInfo:find("%D")) then
             resultMessage = L["%s bidding %s for %s"]:format(k, v.ExtraInfo, L["mainspec"])
          else
             resultMessage = L["%s replacing %s for %s"]:format(k, v.ExtraInfo, L["mainspec"])
          end
 
          rot = false
-         SendChatMessage(resultMessage, channel)
+         SendChatMessage(resultMessage, chatType, nil, channel)
       end
 
       for k, v in pairs(gItemListTable[index].RotList) do
          if (nil == v.ExtraInfo) then
             resultMessage = string.format("%s %s", k, L["offspec"])
-         elseif not (v.ExtraInfo:match("%D+")) then
+         elseif not (v.ExtraInfo:find("%D")) then
             resultMessage = L["%s bidding %s for %s"]:format(k, v.ExtraInfo, L["offspec"])
          else
             resultMessage = L["%s replacing %s for %s"]:format(k, v.ExtraInfo, L["offspec"])
          end
 
          rot = false
-         SendChatMessage(resultMessage, channel)
+         SendChatMessage(resultMessage, chatType, nil, channel)
       end
 
       if (true == rot) then
-         SendChatMessage(L["No one is interested in this item."], channel)
+         SendChatMessage(L["No one is interested in this item."], chatType, nil, channel)
       end
-   else
-      self:Print(L["Cannot print detailed results. You did not specify a valid item number."])
    end
 end
 
@@ -663,22 +701,22 @@ end
 -- Prints in say if you aren't in a party (used for solo testing)
 -------------------------------------------------------
 function PrintRaidMessage(message)
-   local channel
+   local chatType
 
    if (nil ~= message) then
       if (GetNumRaidMembers() > 0) then
          if IsRaidLeader() or IsRaidOfficer() then
-            channel = "RAID_WARNING"
+            chatType = "RAID_WARNING"
          else
-            channel = "RAID"
+            chatType = "RAID"
          end
       elseif (GetNumPartyMembers() > 0) then
-         channel = "PARTY"
+         chatType = "PARTY"
       else
-         channel = "SAY"
+         chatType = "SAY"
       end
 
-      SendChatMessage(message, channel)
+      SendChatMessage(message, chatType)
    end
 end
 
@@ -812,7 +850,7 @@ function SlashHandler(options)
       end
    elseif (L["clear"] == command) then
       if (true == ClearItems()) then
-		   self:Print(L["Previous results were cleared."])
+         self:Print(L["Previous results were cleared."])
       else
          self:Print(L["Could not clear previous results."])
       end
@@ -835,7 +873,7 @@ function TributeLoot:SetupOptions()
    LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("TributeLoot", options)
 
    self.optionsFrames = {}
-	self.optionsFrames.general = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("TributeLoot", self.title, nil, "General")
+   self.optionsFrames.general = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("TributeLoot", self.title, nil, "General")
    self.optionsFrames.ignoreList = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("TributeLoot", "Ignored Items", "TributeLoot", "IgnoreMenu")
 end
 
@@ -847,7 +885,7 @@ function TributeLoot:ShowConfig()
    if (nil ~= self.optionsFrames.general) then
       InterfaceOptionsFrame_OpenToCategory(self.optionsFrames.general)
    else
-      self:Print("Error showing options.")
+      self:Print(L["Could not show options frame."])
    end
 end
 
@@ -866,8 +904,8 @@ end
 function TributeLoot:OnInitialize()
    self.db = LibStub("AceDB-3.0"):New("TLDB", defaults, true)
    self.db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
-	self.db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
-	self.db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
+   self.db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
+   self.db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
 
    gOptionsDatabase = self.db.profile
 
