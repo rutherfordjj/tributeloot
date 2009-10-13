@@ -5,7 +5,7 @@
 --          Website: http://www.tributeguild.net
 --
 --          Created: March 11, 2009
---    Last Modified: October 11, 2009
+--    Last Modified: October 13, 2009
 -------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-3.0", "AceTimer-3.0", "AceEvent-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
@@ -812,7 +812,7 @@ end
 -------------------------------------------------------
 function WhisperFilter(ChatFrameSelf, event, arg1)
    if (nil ~= arg1) then
-      local option = TributeLoot:GetArgs(arg1, 1)
+      local option = TributeLoot:GetArgs(arg1:lower(), 1)
       if ("in" == option) or ("rot" == option) or ("out" == option) then
          return true
       end
