@@ -5,37 +5,24 @@
 --          Website: http://www.tributeguild.net
 --
 --          Created: March 11, 2009
---    Last Modified: October 13, 2009
+--    Last Modified: October 15, 2009
 -------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-3.0", "AceTimer-3.0", "AceEvent-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
 TributeLoot.title = "TributeLoot"
-TributeLoot.version = L["Version"] .. " 1.1.11"
+TributeLoot.version = L["Version"] .. " 1.1.12"
 
 
 -------------------------------------------------------
--- Global Variables
+-- Global variable declarations
 -------------------------------------------------------
-local gItemListTable = {}
-local gLootInProgress = false
-local gOptionsDatabase
+local gLinkedItemsTable = {}
+local gIsLootInProgress = false
+local gCurrentProfileOptions
 
 
 -------------------------------------------------------
--- This "enumeration" is used for returning status
--- information for some functions below
--------------------------------------------------------
-local eStatusResults = {
-   NONE = 0,
-   INVALID_ITEM = 1,
-   PLAYER_ALREADY_EXISTS = 2,
-   PLAYER_NOT_FOUND = 3,
-   SUCCESS = 4,
-}
-
-
--------------------------------------------------------
--- This table sets the default database values
+-- This table sets the default profile options
 -------------------------------------------------------
 local defaults = {
    profile = {
@@ -107,10 +94,10 @@ local options = {
                max = 120,
                step = 5,
                get = function()
-                  return gOptionsDatabase.CountdownSeconds
+                  return gCurrentProfileOptions.CountdownSeconds
                end,
                set = function(info, v)
-                  gOptionsDatabase.CountdownSeconds = v
+                  gCurrentProfileOptions.CountdownSeconds = v
                end,
             },
             ItemQualityFilter = {
@@ -127,10 +114,10 @@ local options = {
                   [4] = ITEM_QUALITY_COLORS[4].hex .. L["Epic"] .. "|r",
                },
                get = function()
-                  return gOptionsDatabase.ItemQualityFilter
+                  return gCurrentProfileOptions.ItemQualityFilter
                end,
                set = function(info, v)
-                  gOptionsDatabase.ItemQualityFilter = v
+                  gCurrentProfileOptions.ItemQualityFilter = v
                end,
             },
             ResultsChannel = {
@@ -148,10 +135,10 @@ local options = {
                   ["CHANNEL"] = L["Channel"],
                },
                get = function()
-                  return gOptionsDatabase.ResultsChannel
+                  return gCurrentProfileOptions.ResultsChannel
                end,
                set = function(info, v)
-                  gOptionsDatabase.ResultsChannel = v
+                  gCurrentProfileOptions.ResultsChannel = v
                end,
             },
             CustomResultsChannel = {
@@ -161,13 +148,13 @@ local options = {
                name = L["Channel"],
                desc = L["Enter the channel name or number where results should print"],
                hidden = function()
-                  return "CHANNEL" ~= gOptionsDatabase.ResultsChannel
+                  return "CHANNEL" ~= gCurrentProfileOptions.ResultsChannel
                end,
                get = function()
-                  return gOptionsDatabase.CustomResultsChannel
+                  return gCurrentProfileOptions.CustomResultsChannel
                end,
                set = function(info, v)
-                  gOptionsDatabase.CustomResultsChannel = v
+                  gCurrentProfileOptions.CustomResultsChannel = v
                end,
             },
          },
@@ -186,13 +173,13 @@ local options = {
                values = IgnoredOptions,
                width = "double",
                get = function(info, v)
-                  return gOptionsDatabase.IgnoredItems[v]
+                  return gCurrentProfileOptions.IgnoredItems[v]
                end,
                set = function(info, k, v)
                   if(v == false) then
-                     gOptionsDatabase.IgnoredItems[k] = nil
+                     gCurrentProfileOptions.IgnoredItems[k] = nil
                   else
-                     gOptionsDatabase.IgnoredItems[k] = true
+                     gCurrentProfileOptions.IgnoredItems[k] = true
                   end
                end,
             },
@@ -207,8 +194,8 @@ local options = {
                   v = v:trim()
                   if not (v:find("%D")) then
                      local itemId = tonumber(v)
-                     if(true ~= gOptionsDatabase.IgnoredItems[itemId]) then
-                        gOptionsDatabase.IgnoredItems[itemId] = true
+                     if(true ~= gCurrentProfileOptions.IgnoredItems[itemId]) then
+                        gCurrentProfileOptions.IgnoredItems[itemId] = true
                         TributeLoot:Print(string.format(L["Item %d was added to the ignore list."], itemId))
                      else
                         TributeLoot:Print(string.format(L["Item %d is already ignored."], itemId))
@@ -229,9 +216,9 @@ local options = {
                   v = v:trim()
                   if not (v:find("%D")) then
                      local itemId = tonumber(v)
-                     if (nil ~= gOptionsDatabase.IgnoredItems[itemId]) then
+                     if (nil ~= gCurrentProfileOptions.IgnoredItems[itemId]) then
                         TributeLoot:Print(string.format(L["Item %d was removed from the ignore list."], itemId))
-                        gOptionsDatabase.IgnoredItems[itemId] = nil
+                        gCurrentProfileOptions.IgnoredItems[itemId] = nil
                      else
                         TributeLoot:Print(string.format(L["Item %d was not on the ignore list."], itemId))
                      end
@@ -246,7 +233,7 @@ local options = {
                name = L["List Ignored Items"],
                desc = L["Prints the custom ignore list"],
                func = function()
-                  for k,v in pairs(gOptionsDatabase.IgnoredItems) do
+                  for k,v in pairs(gCurrentProfileOptions.IgnoredItems) do
                      if (true == v) and (nil == IgnoredOptions[k]) then
                         TributeLoot:Print(k)
                      end
@@ -260,10 +247,10 @@ local options = {
                name = L["Ignore Recipes"],
                desc = L["Determines if recipes will be linked as loot"],
                get = function()
-                  return not gOptionsDatabase.LinkRecipes
+                  return not gCurrentProfileOptions.LinkRecipes
                end,
                set = function(info, v)
-                  gOptionsDatabase.LinkRecipes = not v
+                  gCurrentProfileOptions.LinkRecipes = not v
                end,
             },
          },
@@ -289,14 +276,14 @@ function IsValidItem(item)
       local itemName, itemLink, itemRarity = GetItemInfo(item)
 
       --Check if the item is below the minimum item quality level
-      if (nil ~= itemLink) and (itemRarity >= gOptionsDatabase.ItemQualityFilter) then
+      if (nil ~= itemLink) and (itemRarity >= gCurrentProfileOptions.ItemQualityFilter) then
          local itemId = GetItemId(itemLink)
 
          if (nil ~= itemId) and (nil ~= itemName) then
             --Check if the item should be ignored
             if (false == IsIgnoredItem(itemId)) then
                --Check if the item is a recipe and if recipes should be linked
-               if (false == IsRecipeItem(itemName)) or (true == gOptionsDatabase.LinkRecipes) then
+               if (false == IsRecipeItem(itemName)) or (true == gCurrentProfileOptions.LinkRecipes) then
                   isValid = true
                end
             end
@@ -317,7 +304,7 @@ function IsIgnoredItem(itemId)
    local isIgnored = false
 
    if (nil ~= itemId) then
-      if (true == gOptionsDatabase.IgnoredItems[itemId]) or (true == AlwaysIgnore[itemId]) then
+      if (true == gCurrentProfileOptions.IgnoredItems[itemId]) or (true == AlwaysIgnore[itemId]) then
          isIgnored = true
       end
    end
@@ -387,8 +374,8 @@ function AddItem(itemLink)
 
       if (true == alreadyExists) then
          -- Increment the item count
-         if (nil ~= location) and (nil ~= gItemListTable[location]) then
-            gItemListTable[location].Count = gItemListTable[location].Count + 1
+         if (nil ~= location) and (nil ~= gLinkedItemsTable[location]) then
+            gLinkedItemsTable[location].Count = gLinkedItemsTable[location].Count + 1
             retVal = true
          end
       elseif (true == IsValidItem(itemLink)) then
@@ -401,7 +388,7 @@ function AddItem(itemLink)
             RotList = {},
          }
 
-         table.insert(gItemListTable, itemEntry)
+         table.insert(gLinkedItemsTable, itemEntry)
          retVal = true
       end
    end
@@ -419,9 +406,9 @@ function ClearItems()
    local retVal = false
 
    --Do not clear the table if loot is currently in progress
-   if (false == gLootInProgress) then
-      table.wipe(gItemListTable)
-      gItemListTable = {}
+   if (false == gIsLootInProgress) then
+      table.wipe(gLinkedItemsTable)
+      gLinkedItemsTable = {}
       retVal = true
    end
 
@@ -440,7 +427,7 @@ function DoesItemEntryExist(itemId)
    local location = nil
 
    if (nil ~= itemId) then
-      for index, value in ipairs(gItemListTable) do
+      for index, value in ipairs(gLinkedItemsTable) do
          if (value.ItemId == itemId) then
             itemExists = true
             location = index
@@ -456,11 +443,10 @@ end
 -------------------------------------------------------
 -- Adds a player to a list
 --
--- @return SUCCESS if successful
---         PLAYER_ALREADY_EXISTS if player already exists in list
+-- @return true if successful, false otherwise
 -------------------------------------------------------
 function AddPlayerToList(list, playerName, extraInfo)
-   local status = eStatusResults.PLAYER_ALREADY_EXISTS
+   local status = false
 
    if (nil ~= playerName) and (nil ~= list) then
       --Check if the player entry already exists
@@ -469,7 +455,7 @@ function AddPlayerToList(list, playerName, extraInfo)
             Active = true,
             ExtraInfo = extraInfo,
          }
-         status = eStatusResults.SUCCESS
+         status = true
       end
    end
 
@@ -480,17 +466,16 @@ end
 -------------------------------------------------------
 -- Removes a player from a list
 --
--- @return SUCCESS if successful
---         PLAYER_NOT_FOUND if player doesn't exist in list
+-- @return true if successful, false otherwise
 -------------------------------------------------------
 function RemovePlayerFromList(list, playerName)
-   local status = eStatusResults.PLAYER_NOT_FOUND
+   local status = false
 
    if (nil ~= playerName) and (nil ~= list) then
       --Check if the player entry exists
       if (nil ~= list[playerName]) then
          list[playerName] = nil
-         status = eStatusResults.SUCCESS
+         status = true
       end
    end
 
@@ -504,10 +489,10 @@ end
 function LinkLoot()
    local self = TributeLoot
 
-   if (true == gLootInProgress) then
+   if (true == gIsLootInProgress) then
       self:Print(L["Cannot link anymore items until Last Call."])
    else
-      if (GetNumLootItems() > 1) then
+      if (GetNumLootItems() > 0) then
         --Clear previous results
          ClearItems()
 
@@ -519,10 +504,10 @@ function LinkLoot()
          end    
 
          --Print item table
-         if (#gItemListTable > 0) then
+         if (#gLinkedItemsTable > 0) then
             PrintRaidMessage(L["Whisper me \"in\" or \"rot\" with an item number below (example \"in 1\")"])
             local message
-            for i,v in ipairs(gItemListTable) do
+            for i,v in ipairs(gLinkedItemsTable) do
                message = i .. " -- " .. v.ItemLink
                if (v.Count > 1) then
                   message = message .. "x" .. v.Count
@@ -545,9 +530,9 @@ end
 -------------------------------------------------------
 function StartCountDown()
    local self = TributeLoot
-   local countdown = gOptionsDatabase.CountdownSeconds -- NOTE: This value should always be greater than 30
+   local countdown = gCurrentProfileOptions.CountdownSeconds -- NOTE: This value should always be greater than 30
 
-   gLootInProgress = true
+   gIsLootInProgress = true
 
    --Process the whisper event independent of the chat frames so it is only handled once
    self:RegisterEvent("CHAT_MSG_WHISPER")
@@ -580,7 +565,7 @@ function LastCall()
    self:UnregisterEvent("CHAT_MSG_WHISPER")
    ChatFrame_RemoveMessageEventFilter("CHAT_MSG_WHISPER", WhisperFilter)
    ChatFrame_RemoveMessageEventFilter("CHAT_MSG_WHISPER_INFORM", WhisperInformFilter)
-   gLootInProgress = false
+   gIsLootInProgress = false
    PrintOverallLootResults()
 end
 
@@ -589,11 +574,11 @@ end
 -- Returns where results should print
 -------------------------------------------------------
 function GetResultsChannel()
-   local chatType = gOptionsDatabase.ResultsChannel
+   local chatType = gCurrentProfileOptions.ResultsChannel
    local channel = nil
 
    if (chatType == "CHANNEL") then
-      channel = GetChannelName(gOptionsDatabase.CustomResultsChannel)
+      channel = GetChannelName(gCurrentProfileOptions.CustomResultsChannel)
    end
 
    return chatType, channel
@@ -610,16 +595,16 @@ function PrintOverallLootResults()
    local chatType, channel = GetResultsChannel()
 
    --Do not display the results header if there is nothing to link
-   if (true == gLootInProgress) then
+   if (true == gIsLootInProgress) then
       self:Print(L["Cannot print results until Last Call."])
-   elseif (0 == #gItemListTable) then
+   elseif (0 == #gLinkedItemsTable) then
       self:Print(L["There are no results to print."])
    elseif (0 == channel) then
       self:Print(L["Cannot print results in the specified channel. Join the channel or change the options."])
-   elseif(#gItemListTable > 0) then
+   else
       SendChatMessage("<" .. TributeLoot.title .. "> " ..  L["Results"], chatType, nil, channel)
 
-      for i,v in ipairs(gItemListTable) do
+      for i,v in ipairs(gLinkedItemsTable) do
          resultMessage = v.ItemLink
          counter = 0
          for key, value in pairs(v.InList) do
@@ -651,17 +636,17 @@ function PrintDetailedResults(index)
    local resultsMessage
    local rot
 
-   if (true == gLootInProgress) then
+   if (true == gIsLootInProgress) then
       self:Print(L["Cannot print results until Last Call."])
-   elseif (nil == index) or (nil == gItemListTable[index]) then
+   elseif (nil == index) or (nil == gLinkedItemsTable[index]) then
       self:Print(L["Cannot print detailed results. You did not specify a valid item number."])
    elseif(0 == channel) then
       self:Print(L["Cannot print results in the specified channel. Join the channel or change the options."])
    else
       rot = true
-      SendChatMessage("<" .. TributeLoot.title .. "> " .. L["Detailed Results for %s"]:format(gItemListTable[index].ItemLink), chatType, nil, channel)
+      SendChatMessage("<" .. TributeLoot.title .. "> " .. L["Detailed Results for %s"]:format(gLinkedItemsTable[index].ItemLink), chatType, nil, channel)
 
-      for k, v in pairs(gItemListTable[index].InList) do
+      for k, v in pairs(gLinkedItemsTable[index].InList) do
          if (nil == v.ExtraInfo) then
             resultMessage = string.format("%s %s", k, L["mainspec"])
          elseif not (v.ExtraInfo:find("%D")) then
@@ -674,7 +659,7 @@ function PrintDetailedResults(index)
          SendChatMessage(resultMessage, chatType, nil, channel)
       end
 
-      for k, v in pairs(gItemListTable[index].RotList) do
+      for k, v in pairs(gLinkedItemsTable[index].RotList) do
          if (nil == v.ExtraInfo) then
             resultMessage = string.format("%s %s", k, L["offspec"])
          elseif not (v.ExtraInfo:find("%D")) then
@@ -726,7 +711,6 @@ end
 -------------------------------------------------------
 function TributeLoot:CHAT_MSG_WHISPER(event, message, sender)
    local self = TributeLoot
-   local status = eStatusResults.NONE
 
    if (nil ~= message) and (nil ~= sender) then
       local option, itemIndex, extraInfo = self:GetArgs(message, 3)
@@ -740,66 +724,46 @@ function TributeLoot:CHAT_MSG_WHISPER(event, message, sender)
       end
 
       if ("in" == option) then
-         --Process the command
-         if (nil ~= gItemListTable[itemIndex]) then
-            status = AddPlayerToList(gItemListTable[itemIndex].InList, sender, extraInfo)
+         if (nil ~= gLinkedItemsTable[itemIndex]) then
+            if (true == AddPlayerToList(gLinkedItemsTable[itemIndex].InList, sender, extraInfo)) then
+               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed."]:format(L["[IN]"], gLinkedItemsTable[itemIndex].ItemLink, itemIndex), "WHISPER", nil, sender)
+            else
+               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[IN]"], gLinkedItemsTable[itemIndex].ItemLink), "WHISPER", nil, sender)            
+            end
          else
-            status = eStatusResults.INVALID_ITEM
-         end
-
-         --Send whisper response
-         if (eStatusResults.SUCCESS == status) then
-            SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed."]:format(L["[IN]"], gItemListTable[itemIndex].ItemLink, itemIndex), "WHISPER", nil, sender)
-         elseif (eStatusResults.PLAYER_ALREADY_EXISTS == status) then
-            SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[IN]"], gItemListTable[itemIndex].ItemLink), "WHISPER", nil, sender)
-         elseif (eStatusResults.INVALID_ITEM == status) then
             SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], "WHISPER", nil, sender)
          end
       elseif ("rot" == option) then
-         --Process the command
-         if (nil ~= gItemListTable[itemIndex]) then
-            status = AddPlayerToList(gItemListTable[itemIndex].RotList, sender, extraInfo)
+         if (nil ~= gLinkedItemsTable[itemIndex]) then
+            if (true == AddPlayerToList(gLinkedItemsTable[itemIndex].RotList, sender, extraInfo)) then
+               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed."]:format(L["[ROT]"], gLinkedItemsTable[itemIndex].ItemLink, itemIndex), "WHISPER", nil, sender)            
+            else
+               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[ROT]"], gLinkedItemsTable[itemIndex].ItemLink), "WHISPER", nil, sender)
+            end
          else
-            status = eStatusResults.INVALID_ITEM
-         end
-
-         --Send whisper response
-         if (eStatusResults.SUCCESS == status) then
-            SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed."]:format(L["[ROT]"], gItemListTable[itemIndex].ItemLink, itemIndex), "WHISPER", nil, sender)
-         elseif (eStatusResults.PLAYER_ALREADY_EXISTS == status) then
-            SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[ROT]"], gItemListTable[itemIndex].ItemLink), "WHISPER", nil, sender)
-         elseif (eStatusResults.INVALID_ITEM == status) then
             SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], "WHISPER", nil, sender)
          end
       elseif ("out" == option) then
-         local listString = ""
+         if (nil ~= gLinkedItemsTable[itemIndex]) then
+            local listString = ""
 
-         --Process the command
-         if (nil ~= gItemListTable[itemIndex]) then
-            status = RemovePlayerFromList(gItemListTable[itemIndex].InList, sender)
-            if (eStatusResults.SUCCESS == status) then
+            if (true == RemovePlayerFromList(gLinkedItemsTable[itemIndex].InList, sender)) then
                listString = L["[IN]"]
             end
 
-            status = RemovePlayerFromList(gItemListTable[itemIndex].RotList, sender)
-            if(eStatusResults.SUCCESS == status) then
-               --If the player was also removed from the [IN] list, then append "and"
+            if(true == RemovePlayerFromList(gLinkedItemsTable[itemIndex].RotList, sender)) then
                if ("" ~= listString) then
                   listString = listString .. " " .. L["and"] .. " "
                end
-
                listString = listString .. L["[ROT]"]
             end
-         else
-            status = eStatusResults.INVALID_ITEM
-         end
 
-         --Send whisper response
-         if ("" ~= listString) then
-            SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were removed from the %s list for %s."]:format(listString, gItemListTable[itemIndex].ItemLink), "WHISPER", nil, sender)
-         elseif (eStatusResults.PLAYER_NOT_FOUND == status) then
-            SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are not on the lists for %s, so I cannot remove you."]:format(gItemListTable[itemIndex].ItemLink) , "WHISPER", nil, sender)
-         elseif (eStatusResults.INVALID_ITEM == status) then
+            if ("" ~= listString) then
+               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were removed from the %s list for %s."]:format(listString, gLinkedItemsTable[itemIndex].ItemLink), "WHISPER", nil, sender)
+            else
+               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are not on the lists for %s, so I cannot remove you."]:format(gLinkedItemsTable[itemIndex].ItemLink) , "WHISPER", nil, sender)
+            end
+         else
             SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], "WHISPER", nil, sender)
          end
       end
@@ -894,7 +858,7 @@ end
 -- Called when options profile is changed
 -------------------------------------------------------
 function TributeLoot:OnProfileChanged(event, database, newProfileKey)
-   gOptionsDatabase = database.profile
+   gCurrentProfileOptions = database.profile
 end
 
 
@@ -907,7 +871,7 @@ function TributeLoot:OnInitialize()
    self.db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
    self.db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
 
-   gOptionsDatabase = self.db.profile
+   gCurrentProfileOptions = self.db.profile
 
    self:RegisterChatCommand("tl", SlashHandler)
    self:SetupOptions()
