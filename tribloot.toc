@@ -1,6 +1,6 @@
 ﻿## Author: Euthymius
-## Version: 1.1.12
-## Interface: 30200
+## Version: 1.1.13
+## Interface: 30300
 ## Title: TributeLoot |cff7fff7f -Ace3-|r
 ## Notes: Loot management tool
 ## SavedVariables: TLDB

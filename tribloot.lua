@@ -5,12 +5,12 @@
 --          Website: http://www.tributeguild.net
 --
 --          Created: March 11, 2009
---    Last Modified: October 15, 2009
+--    Last Modified: December 08, 2009
 -------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-3.0", "AceTimer-3.0", "AceEvent-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
 TributeLoot.title = "TributeLoot"
-TributeLoot.version = L["Version"] .. " 1.1.12"
+TributeLoot.version = L["Version"] .. " 1.1.13"
 
 
 -------------------------------------------------------
@@ -45,6 +45,7 @@ local AlwaysIgnore = {
    [40753] = true, -- Emblem of Valor
    [45624] = true, -- Emblem of Conquest
    [47241] = true, -- Emblem of Triumph
+   [49426] = true, -- Emblem of Frost
 }
 
 
