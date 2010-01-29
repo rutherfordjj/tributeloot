@@ -5,12 +5,12 @@
 --          Website: http://www.tributeguild.net
 --
 --          Created: March 11, 2009
---    Last Modified: December 08, 2009
+--    Last Modified: January 29, 2010
 -------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-3.0", "AceTimer-3.0", "AceEvent-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
 TributeLoot.title = "TributeLoot"
-TributeLoot.version = L["Version"] .. " 1.1.13"
+TributeLoot.version = L["Version"] .. " 1.1.14"
 
 
 -------------------------------------------------------
@@ -69,6 +69,9 @@ local IgnoredOptions = {
    [49636] = L["Reins of the Onyxian Drake"],
    [49643] = L["Head of Onyxia (H)"],
    [49644] = L["Head of Onyxia (A)"],
+   [50226] = L["Festergut's Acidic Blood"],
+   [50231] = L["Rotface's Acidic Blood"],
+   [50274] = L["Shadowfrost Shard"],
 }
 
 
@@ -607,6 +610,11 @@ function PrintOverallLootResults()
 
       for i,v in ipairs(gLinkedItemsTable) do
          resultMessage = v.ItemLink
+
+         if (v.Count > 1) then
+            resultMessage = resultMessage .. "x" .. v.Count
+         end
+
          counter = 0
          for key, value in pairs(v.InList) do
             resultMessage = resultMessage .. " " .. key .. " "
