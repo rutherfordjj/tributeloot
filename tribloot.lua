@@ -5,12 +5,12 @@
 --          Website: http://www.tributeguild.net
 --
 --          Created: March 11, 2009
---    Last Modified: January 29, 2010
+--    Last Modified: December 24, 2010
 -------------------------------------------------------
-local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TributeLoot", "AceConsole-3.0", "AceTimer-3.0", "AceEvent-3.0")
+local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TL", "AceConsole-3.0", "AceTimer-3.0", "AceEvent-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
-TributeLoot.title = "TributeLoot"
-TributeLoot.version = L["Version"] .. " 1.1.14"
+TributeLoot.title = "TL"
+TributeLoot.version = L["Version"] .. " 1.2.0"
 
 
 -------------------------------------------------------
@@ -50,7 +50,7 @@ local AlwaysIgnore = {
 
 
 -------------------------------------------------------
--- Adding an item ID to this table will add it to the 
+-- Adding an item ID to this table will add it to the
 -- menu as a checkable ignored item.
 -------------------------------------------------------
 local IgnoredOptions = {
@@ -351,7 +351,7 @@ function GetItemId(itemLink)
    local itemId = nil
 
    if (nil ~= itemLink) then
-      itemId = select(3, itemLink:find("item:(%d+):"))  
+      itemId = select(3, itemLink:find("item:(%d+):"))
 
       if (nil ~= itemId) then
          itemId = tonumber(itemId:trim())
@@ -505,7 +505,7 @@ function LinkLoot()
             if (LootSlotIsItem(i)) then
                AddItem(GetLootSlotLink(i))
             end
-         end    
+         end
 
          --Print item table
          if (#gLinkedItemsTable > 0) then
@@ -737,7 +737,7 @@ function TributeLoot:CHAT_MSG_WHISPER(event, message, sender)
             if (true == AddPlayerToList(gLinkedItemsTable[itemIndex].InList, sender, extraInfo)) then
                SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed."]:format(L["[IN]"], gLinkedItemsTable[itemIndex].ItemLink, itemIndex), "WHISPER", nil, sender)
             else
-               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[IN]"], gLinkedItemsTable[itemIndex].ItemLink), "WHISPER", nil, sender)            
+               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[IN]"], gLinkedItemsTable[itemIndex].ItemLink), "WHISPER", nil, sender)
             end
          else
             SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], "WHISPER", nil, sender)
@@ -745,7 +745,7 @@ function TributeLoot:CHAT_MSG_WHISPER(event, message, sender)
       elseif ("rot" == option) then
          if (nil ~= gLinkedItemsTable[itemIndex]) then
             if (true == AddPlayerToList(gLinkedItemsTable[itemIndex].RotList, sender, extraInfo)) then
-               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed."]:format(L["[ROT]"], gLinkedItemsTable[itemIndex].ItemLink, itemIndex), "WHISPER", nil, sender)            
+               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed."]:format(L["[ROT]"], gLinkedItemsTable[itemIndex].ItemLink, itemIndex), "WHISPER", nil, sender)
             else
                SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[ROT]"], gLinkedItemsTable[itemIndex].ItemLink), "WHISPER", nil, sender)
             end
@@ -789,7 +789,7 @@ function WhisperFilter(ChatFrameSelf, event, arg1)
       if ("in" == option) or ("rot" == option) or ("out" == option) then
          return true
       end
-   end   
+   end
 end
 
 
@@ -843,11 +843,11 @@ end
 -- Initialize the option frames
 -------------------------------------------------------
 function TributeLoot:SetupOptions()
-   LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("TributeLoot", options)
+   LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("TL", options)
 
    self.optionsFrames = {}
-   self.optionsFrames.general = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("TributeLoot", self.title, nil, "General")
-   self.optionsFrames.ignoreList = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("TributeLoot", "Ignored Items", "TributeLoot", "IgnoreMenu")
+   self.optionsFrames.general = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("TL", "TributeLoot", nil, "General")
+   self.optionsFrames.ignoreList = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("TL", "Ignored Items", "TributeLoot", "IgnoreMenu")
 end
 
 
