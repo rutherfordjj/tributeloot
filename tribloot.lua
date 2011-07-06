@@ -2,15 +2,15 @@
 --                T R I B U T E L O O T
 -------------------------------------------------------
 --        Author(s): Euthymius
---          Website: http://www.tributeguild.net
+--          Website: http://www.tributeguild.net  (DEFUNCT)
 --
 --          Created: March 11, 2009
---    Last Modified: December 24, 2010
+--    Last Modified: July 6, 2011
 -------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TL", "AceConsole-3.0", "AceTimer-3.0", "AceEvent-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
 TributeLoot.title = "TL"
-TributeLoot.version = L["Version"] .. " 1.2.0"
+TributeLoot.version = L["Version"] .. " 1.2.1"
 
 
 -------------------------------------------------------
