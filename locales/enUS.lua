@@ -96,7 +96,6 @@ L["Shadowfrost Shard"] = true
 L["%s replacing %s for %s"] = true
 L["There are no results to print."] = true
 L["Uncommon"] = true
-L["Version"] = true
 L["Whisper me \"in\" or \"rot\" with an item number below (example \"in 1\")"] = true
 L["You are already added to the %s list for %s, so I am ignoring this request."] = true
 L["You are not on the lists for %s, so I cannot remove you."] = true
