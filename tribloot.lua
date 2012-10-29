@@ -1,16 +1,16 @@
 ﻿-------------------------------------------------------
 --                T R I B U T E L O O T
 -------------------------------------------------------
---        Author(s): Euthymius
+--        Author(s): Euthymius - Thunderlord
 --          Website: http://www.tributeguild.net  (DEFUNCT)
 --
 --          Created: March 11, 2009
---    Last Modified: February 19, 2012
+--    Last Modified: October 29, 2012
 -------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TL", "AceConsole-3.0", "AceTimer-3.0", "AceEvent-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
 TributeLoot.title = "TL"
-TributeLoot.version = L["Version"] .. " @project-version@"
+TributeLoot.version = "TributeLoot @project-version@"
 
 
 -------------------------------------------------------
@@ -511,7 +511,7 @@ function AddLoot(displayItemMessages)
       --Build item table
       local link
       for i = 1, GetNumLootItems() do
-         if (LootSlotIsItem(i)) then
+         if (LootSlotHasItem(i)) then
             link = GetLootSlotLink(i)
             if (true == AddItem(link)) then
                count = count + 1
@@ -747,13 +747,13 @@ function PrintRaidMessage(message)
    local chatType
 
    if (nil ~= message) then
-      if (GetNumRaidMembers() > 0) then
-         if IsRaidLeader() or IsRaidOfficer() then
+      if IsInRaid() then
+         if UnitIsGroupLeader("player") or UnitIsGroupAssistant("player") then
             chatType = "RAID_WARNING"
          else
             chatType = "RAID"
          end
-      elseif (GetNumPartyMembers() > 0) then
+      elseif (GetNumSubgroupMembers() > 0) then
          chatType = "PARTY"
       else
          chatType = "SAY"
