@@ -836,7 +836,10 @@ end
 function SlashHandler(options)
    local self = TributeLoot
    local command, param1 = self:GetArgs(options, 2)
-   command = command:lower()
+
+   if (nil ~= command) then
+      command = command:lower()
+   end
 
    if (L["link"] == command) or ("l" == command) then
       LinkLoot()
