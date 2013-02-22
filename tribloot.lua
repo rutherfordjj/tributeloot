@@ -29,18 +29,20 @@ local defaults = {
    profile = {
       CountdownSeconds     = 45,
       ItemQualityFilter    = 4,
-      ResultsChannel       = "OFFICER",
+      ResultsChannel       = "GUILD",
       CustomResultsChannel = "",
-      LinkRecipes          = false,
+      LinkRecipes          = true,
       IgnoredItems         = {},
    },
 }
+
 
 -------------------------------------------------------
 -- Adding an item ID to this table will add it to the
 -- menu as a checkable ignored item.
 -------------------------------------------------------
 local IgnoredOptions = {}
+
 
 -------------------------------------------------------
 -- This table sets up the options GUI
@@ -136,9 +138,16 @@ local options = {
          name = L["Ignored Items"],
          desc = L["Ignored Items"],
          args = {
+            IgnoredListDescription = {
+               type = "description",
+               order = 1,
+               name = L["Add items to this list with the \"/tl ignore %s[item]|r\" command."]:format(ITEM_QUALITY_COLORS[4].hex),
+               fontSize = "large",
+               width = "full",
+            },
             IgnoredList = {
                type = "multiselect",
-               order = 1,
+               order = 2,
                name = L["Ignored List"],
                desc = L["Checking prevents items from being linked as loot"],
                values = function()
@@ -150,7 +159,7 @@ local options = {
                   return gtl_CurrentProfileOptions.IgnoredItems[v]
                end,
                set = function(info, k, v)
-                  if(v == false) then
+                  if (false == v) then
                      gtl_CurrentProfileOptions.IgnoredItems[k] = nil
                   else
                      gtl_CurrentProfileOptions.IgnoredItems[k] = true
@@ -159,7 +168,7 @@ local options = {
             },
             IgnoreRecipes = {
                type = "toggle",
-               order = 5,
+               order = 3,
                width = "double",
                name = L["Ignore Recipes"],
                desc = L["Determines if recipes will be linked as loot"],
@@ -276,18 +285,16 @@ end
 
 
 -------------------------------------------------------
--- Gets the item info for the ignore item menu options
+-- Update the ignored item options table
 -------------------------------------------------------
 function LoadIgnoredOptions()
    for k, v in pairs(gtl_CurrentProfileOptions.IgnoredItems) do
-      if (nil ~= k) then
-         local itemName, itemLink, itemRarity = GetItemInfo(k)
+      local itemName, itemLink, itemRarity = GetItemInfo(k)
 
-         if (nil ~= itemName) and (nil ~= itemRarity) then
-            IgnoredOptions[k] = string.format("%s%s|r (ID: %s)", ITEM_QUALITY_COLORS[itemRarity].hex, itemName, k)
-         else
-            IgnoredOptions[k] = k
-         end
+      if (nil ~= itemName) and (nil ~= itemRarity) then
+         IgnoredOptions[k] = string.format("%s%s|r (ID: %s)", ITEM_QUALITY_COLORS[itemRarity].hex, itemName, k)
+      else
+         IgnoredOptions[k] = k
       end
    end
 end
@@ -300,11 +307,12 @@ function IgnoreItem(itemLink)
    local self = TributeLoot
 
    if (nil ~= itemLink) then
-
       local itemId = GetItemId(itemLink)
+
       if (nil ~= itemId) then
-         if(true ~= gtl_CurrentProfileOptions.IgnoredItems[itemId]) then
+         if (true ~= gtl_CurrentProfileOptions.IgnoredItems[itemId]) then
             gtl_CurrentProfileOptions.IgnoredItems[itemId] = true
+            NotifyMenuOptionsChange()
             self:Print(L["Item %s was added to the ignore list."]:format(itemLink))
          else
             self:Print(L["Item %s is already ignored."]:format(itemLink))
@@ -326,8 +334,9 @@ function UnignoreItem(itemLink)
       local itemId = GetItemId(itemLink)
 
       if (nil ~= itemId) then
-         if(true == gtl_CurrentProfileOptions.IgnoredItems[itemId]) then
+         if (true == gtl_CurrentProfileOptions.IgnoredItems[itemId]) then
             gtl_CurrentProfileOptions.IgnoredItems[itemId] = nil
+            NotifyMenuOptionsChange()
             self:Print(L["Item %s was removed from the ignore list."]:format(itemLink))
          else
             self:Print(L["Item %s was not on the ignore list."]:format(itemLink))
@@ -674,7 +683,7 @@ function PrintDetailedResults(index)
       self:Print(L["Cannot print results until Last Call."])
    elseif (nil == index) or (nil == gtl_LinkedItemsTable[index]) then
       self:Print(L["Cannot print detailed results. You did not specify a valid item number."])
-   elseif(0 == channel) then
+   elseif (0 == channel) then
       self:Print(L["Cannot print results in the specified channel. Join the channel or change the options."])
    else
       rot = true
@@ -785,7 +794,7 @@ function TributeLoot:CHAT_MSG_WHISPER(event, message, sender)
                listString = L["[IN]"]
             end
 
-            if(true == RemovePlayerFromList(gtl_LinkedItemsTable[itemIndex].RotList, sender)) then
+            if (true == RemovePlayerFromList(gtl_LinkedItemsTable[itemIndex].RotList, sender)) then
                if ("" ~= listString) then
                   listString = listString .. " " .. L["and"] .. " "
                end
@@ -861,14 +870,14 @@ function SlashHandler(options)
       end
    elseif (L["options"] == command) or ("o" == command) then
       self:ShowConfig()
-   elseif (L["ignore"] == command) then
+   elseif (L["ignore"] == command) or ("i" == command) then
 
       if (nil == param1) then
          self:ShowIgnoreMenu()
       else
          IgnoreItem(param1)
       end
-   elseif (L["unignore"] == command) then
+   elseif (L["unignore"] == command) or ("u" == command) then
       if (nil == param1) then
          self:ShowIgnoreMenu()
       else
@@ -878,12 +887,20 @@ function SlashHandler(options)
       self:Print(self.version)
       self:Print("/tl " .. L["addloot"])
       self:Print("/tl " .. L["link"])
-      self:Print("/tl " .. L["results"] .. " [#]")
+      self:Print("/tl " .. L["results"] .. " (#)")
       self:Print("/tl " .. L["clear"])
       self:Print("/tl " .. L["options"])
-      self:Print("/tl " .. L["ignore"] .. L[" [item]"])
-      self:Print("/tl " .. L["unignore"] .. L[" [item]"])
+      self:Print("/tl " .. L["ignore"] .. L[" %s[item]|r"]:format(ITEM_QUALITY_COLORS[4].hex))
+      self:Print("/tl " .. L["unignore"] .. L[" %s[item]|r"]:format(ITEM_QUALITY_COLORS[4].hex))
    end
+end
+
+
+-------------------------------------------------------
+-- Updates the menu GUI with the option changes
+-------------------------------------------------------
+function NotifyMenuOptionsChange()
+   LibStub("AceConfigRegistry-3.0"):NotifyChange("TL")
 end
 
 
