@@ -5,7 +5,7 @@
 --          Website: http://www.tributeguild.net  (DEFUNCT)
 --
 --          Created: March 11, 2009
---    Last Modified: October 29, 2012
+--    Last Modified: February 22, 2013
 -------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TL", "AceConsole-3.0", "AceTimer-3.0", "AceEvent-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
@@ -36,45 +36,11 @@ local defaults = {
    },
 }
 
-
--------------------------------------------------------
--- Adding an item ID to this table will always prevent it
--- from being linked, regardless of the options.
--------------------------------------------------------
-local AlwaysIgnore = {
-   [40752] = true, -- Emblem of Heroism
-   [40753] = true, -- Emblem of Valor
-   [45624] = true, -- Emblem of Conquest
-   [47241] = true, -- Emblem of Triumph
-   [49426] = true, -- Emblem of Frost
-}
-
-
 -------------------------------------------------------
 -- Adding an item ID to this table will add it to the
 -- menu as a checkable ignored item.
 -------------------------------------------------------
-local IgnoredOptions = {
-   [43345] = L["Dragon Hide Bag"],
-   [43346] = L["Large Satchel of Spoils"],
-   [43952] = L["Reins of the Azure Drake"],
-   [43954] = L["Reins of the Twilight Drake"],
-   [43959] = L["Reins of the Grand Black War Mammoth (A)"],
-   [44083] = L["Reins of the Grand Black War Mammoth (H)"],
-   [45038] = L["Fragment of Val'anyr"],
-   [45506] = L["Archivum Data Disc (10)"],
-   [45693] = L["Mimiron's Head"],
-   [45857] = L["Archivum Data Disc (25)"],
-   [49294] = L["Ashen Sack of Gems"],
-   [49295] = L["Enlarged Onyxia Hide Backpack"],
-   [49636] = L["Reins of the Onyxian Drake"],
-   [49643] = L["Head of Onyxia (H)"],
-   [49644] = L["Head of Onyxia (A)"],
-   [50226] = L["Festergut's Acidic Blood"],
-   [50231] = L["Rotface's Acidic Blood"],
-   [50274] = L["Shadowfrost Shard"],
-}
-
+local IgnoredOptions = {}
 
 -------------------------------------------------------
 -- This table sets up the options GUI
@@ -175,8 +141,11 @@ local options = {
                order = 1,
                name = L["Ignored List"],
                desc = L["Checking prevents items from being linked as loot"],
-               values = IgnoredOptions,
-               width = "double",
+               values = function()
+                  LoadIgnoredOptions()
+                  return IgnoredOptions
+               end,
+               width = "full",
                get = function(info, v)
                   return gtl_CurrentProfileOptions.IgnoredItems[v]
                end,
@@ -185,63 +154,6 @@ local options = {
                      gtl_CurrentProfileOptions.IgnoredItems[k] = nil
                   else
                      gtl_CurrentProfileOptions.IgnoredItems[k] = true
-                  end
-               end,
-            },
-            AddCustomItem = {
-               type = "input",
-               order = 2,
-               name = L["Add Custom Item ID"],
-               desc = L["Adds a custom item ID to the ignored list"],
-               usage = L["<Item ID>"],
-               get = false,
-               set = function(info, v)
-                  v = v:trim()
-                  if not (v:find("%D")) then
-                     local itemId = tonumber(v)
-                     if(true ~= gtl_CurrentProfileOptions.IgnoredItems[itemId]) then
-                        gtl_CurrentProfileOptions.IgnoredItems[itemId] = true
-                        TributeLoot:Print(string.format(L["Item %d was added to the ignore list."], itemId))
-                     else
-                        TributeLoot:Print(string.format(L["Item %d is already ignored."], itemId))
-                     end
-                  else
-                     TributeLoot:Print(L["Item IDs can only contain numeric characters."])
-                  end
-               end,
-            },
-            RemoveCustomItem = {
-               type = "input",
-               order = 3,
-               name = L["Remove Custom Item ID"],
-               desc = L["Removes an item ID from ignored list"],
-               usage = L["<Item ID>"],
-               get = false,
-               set = function(info, v)
-                  v = v:trim()
-                  if not (v:find("%D")) then
-                     local itemId = tonumber(v)
-                     if (nil ~= gtl_CurrentProfileOptions.IgnoredItems[itemId]) then
-                        TributeLoot:Print(string.format(L["Item %d was removed from the ignore list."], itemId))
-                        gtl_CurrentProfileOptions.IgnoredItems[itemId] = nil
-                     else
-                        TributeLoot:Print(string.format(L["Item %d was not on the ignore list."], itemId))
-                     end
-                  else
-                     TributeLoot:Print(L["Item IDs can only contain numeric characters."])
-                  end
-               end,
-            },
-            ListIgnoredItems = {
-               type = "execute",
-               order = 4,
-               name = L["List Ignored Items"],
-               desc = L["Prints the custom ignore list"],
-               func = function()
-                  for k,v in pairs(gtl_CurrentProfileOptions.IgnoredItems) do
-                     if (true == v) and (nil == IgnoredOptions[k]) then
-                        TributeLoot:Print(k)
-                     end
                   end
                end,
             },
@@ -309,7 +221,7 @@ function IsIgnoredItem(itemId)
    local isIgnored = false
 
    if (nil ~= itemId) then
-      if (true == gtl_CurrentProfileOptions.IgnoredItems[itemId]) or (true == AlwaysIgnore[itemId]) then
+      if (true == gtl_CurrentProfileOptions.IgnoredItems[itemId]) then
          isIgnored = true
       end
    end
@@ -334,7 +246,7 @@ function IsRecipeItem(itemName)
          (itemName:find(L["Recipe:"])) or
          (itemName:find(L["Schematic:"])) then
 
-         isRecipe = true;
+         isRecipe = true
       end
    end
 
@@ -360,6 +272,70 @@ function GetItemId(itemLink)
    end
 
    return itemId
+end
+
+
+-------------------------------------------------------
+-- Gets the item info for the ignore item menu options
+-------------------------------------------------------
+function LoadIgnoredOptions()
+   for k, v in pairs(gtl_CurrentProfileOptions.IgnoredItems) do
+      if (nil ~= k) then
+         local itemName, itemLink, itemRarity = GetItemInfo(k)
+
+         if (nil ~= itemName) and (nil ~= itemRarity) then
+            IgnoredOptions[k] = string.format("%s%s|r (ID: %s)", ITEM_QUALITY_COLORS[itemRarity].hex, itemName, k)
+         else
+            IgnoredOptions[k] = k
+         end
+      end
+   end
+end
+
+
+-------------------------------------------------------
+-- Adds Item to ignore list
+-------------------------------------------------------
+function IgnoreItem(itemLink)
+   local self = TributeLoot
+
+   if (nil ~= itemLink) then
+
+      local itemId = GetItemId(itemLink)
+      if (nil ~= itemId) then
+         if(true ~= gtl_CurrentProfileOptions.IgnoredItems[itemId]) then
+            gtl_CurrentProfileOptions.IgnoredItems[itemId] = true
+            self:Print(L["Item %s was added to the ignore list."]:format(itemLink))
+         else
+            self:Print(L["Item %s is already ignored."]:format(itemLink))
+         end
+      else
+         self:Print(L["Please link a valid item."])
+      end
+   end
+end
+
+
+-------------------------------------------------------
+-- Removes Item from ignore list
+-------------------------------------------------------
+function UnignoreItem(itemLink)
+   local self = TributeLoot
+
+   if (nil ~= itemLink) then
+      local itemId = GetItemId(itemLink)
+
+      if (nil ~= itemId) then
+         if(true == gtl_CurrentProfileOptions.IgnoredItems[itemId]) then
+            gtl_CurrentProfileOptions.IgnoredItems[itemId] = nil
+            self:Print(L["Item %s was removed from the ignore list."]:format(itemLink))
+         else
+            self:Print(L["Item %s was not on the ignore list."]:format(itemLink))
+         end
+      else
+         self:Print(L["Please link a valid item."])
+      end
+   end
 end
 
 
@@ -859,7 +835,8 @@ end
 -------------------------------------------------------
 function SlashHandler(options)
    local self = TributeLoot
-   local command, param1 = self:GetArgs(options:lower(), 2)
+   local command, param1 = self:GetArgs(options, 2)
+   command = command:lower()
 
    if (L["link"] == command) or ("l" == command) then
       LinkLoot()
@@ -881,6 +858,19 @@ function SlashHandler(options)
       end
    elseif (L["options"] == command) or ("o" == command) then
       self:ShowConfig()
+   elseif (L["ignore"] == command) then
+
+      if (nil == param1) then
+         self:ShowIgnoreMenu()
+      else
+         IgnoreItem(param1)
+      end
+   elseif (L["unignore"] == command) then
+      if (nil == param1) then
+         self:ShowIgnoreMenu()
+      else
+         UnignoreItem(param1)
+      end
    else
       self:Print(self.version)
       self:Print("/tl " .. L["addloot"])
@@ -888,6 +878,8 @@ function SlashHandler(options)
       self:Print("/tl " .. L["results"] .. " [#]")
       self:Print("/tl " .. L["clear"])
       self:Print("/tl " .. L["options"])
+      self:Print("/tl " .. L["ignore"] .. L[" [item]"])
+      self:Print("/tl " .. L["unignore"] .. L[" [item]"])
    end
 end
 
@@ -917,6 +909,18 @@ end
 
 
 -------------------------------------------------------
+-- Show the options window
+-------------------------------------------------------
+function TributeLoot:ShowIgnoreMenu()
+   if (nil ~= self.optionsFrames.ignoreList) then
+      InterfaceOptionsFrame_OpenToCategory(self.optionsFrames.ignoreList)
+   else
+      self:Print(L["Could not show options frame."])
+   end
+end
+
+
+-------------------------------------------------------
 -- Called when options profile is changed
 -------------------------------------------------------
 function TributeLoot:OnProfileChanged(event, database, newProfileKey)
@@ -934,6 +938,10 @@ function TributeLoot:OnInitialize()
    self.db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
 
    gtl_CurrentProfileOptions = self.db.profile
+
+   --Load options on init so client will async query the item info from server
+   --otherwise GetItemInfo will probably return nil the first time it is called
+   LoadIgnoredOptions()
 
    self:RegisterChatCommand("tl", SlashHandler)
    self:SetupOptions()
