@@ -1,11 +1,11 @@
-﻿-------------------------------------------------------
+-------------------------------------------------------
 --                T R I B U T E L O O T
 -------------------------------------------------------
 --        Author(s): Euthymius - Thunderlord
---          Website: http://www.tributeguild.net  (DEFUNCT)
+--          Website: http://www.reforgedguild.net
 --
 --          Created: March 11, 2009
---    Last Modified: February 22, 2013
+--    Last Modified: September 14, 2013
 -------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TL", "AceConsole-3.0", "AceTimer-3.0", "AceEvent-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
