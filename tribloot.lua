@@ -651,12 +651,12 @@ function PrintOverallLootResults()
 
          counter = 0
          for key, value in pairs(v.InList) do
-            resultMessage = resultMessage .. " " .. key .. " "
+            resultMessage = resultMessage .. " " .. gsub(key, "%-[^|]+", "") .. " "
             counter = counter + 1
          end
 
          for key, value in pairs(v.RotList) do
-            resultMessage = resultMessage .. " (" .. key .. ") "
+            resultMessage = resultMessage .. " (" .. gsub(key, "%-[^|]+", "") .. ") "
             counter = counter + 1
          end
 
