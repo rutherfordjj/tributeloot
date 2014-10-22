@@ -850,13 +850,15 @@ function SplitMessage(message)
    return option, itemIndex, comment
 end
 
+-------------------------------------------------------
+-- Reply to whispers based on type
+-------------------------------------------------------
 function Reply(message, channel, sender)
    if "CHAT_MSG_BN_WHISPER" == channel then
       BNSendWhisper(sender, message)
    elseif "CHAT_MSG_WHISPER" == channel then
       SendChatMessage(message, "WHISPER", nil, sender)
    end
-
 end
 
 -------------------------------------------------------
@@ -966,7 +968,8 @@ end
 -------------------------------------------------------
 function TributeLoot:ShowConfig()
    if (nil ~= self.optionsFrames.general) then
-      InterfaceOptionsFrame_OpenToCategory(self.optionsFrames.general)
+      LibStub("AceConfigDialog-3.0"):Open("TL")
+      LibStub("AceConfigDialog-3.0"):SelectGroup("TL", "General")
    else
       self:Print(L["Could not show options frame."])
    end
@@ -978,7 +981,8 @@ end
 -------------------------------------------------------
 function TributeLoot:ShowIgnoreMenu()
    if (nil ~= self.optionsFrames.ignoreList) then
-      InterfaceOptionsFrame_OpenToCategory(self.optionsFrames.ignoreList)
+      LibStub("AceConfigDialog-3.0"):Open("TL")
+      LibStub("AceConfigDialog-3.0"):SelectGroup("TL", "IgnoreMenu")
    else
       self:Print(L["Could not show options frame."])
    end
