@@ -3,9 +3,6 @@
 -------------------------------------------------------
 --        Author(s): Euthymius - Thunderlord
 --          Website: http://www.reforgedguild.net
---
---          Created: March 11, 2009
---    Last Modified: September 14, 2013
 -------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TL", "AceConsole-3.0", "AceTimer-3.0", "AceEvent-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
@@ -435,7 +432,7 @@ end
 --
 -- @return true if successful, false otherwise
 -------------------------------------------------------
-function AddPlayerToList(list, playerName, extraInfo)
+function AddPlayerToList(list, playerName, comment)
    local status = false
 
    if (nil ~= playerName) and (nil ~= list) then
@@ -443,7 +440,7 @@ function AddPlayerToList(list, playerName, extraInfo)
       if (nil == list[playerName]) then
          list[playerName] = {
             Active = true,
-            ExtraInfo = extraInfo,
+            Comment = comment,
          }
          status = true
       end
@@ -574,10 +571,13 @@ function StartCountDown()
 
    --Process the whisper event independent of the chat frames so it is only handled once
    self:RegisterEvent("CHAT_MSG_WHISPER")
+   self:RegisterEvent("CHAT_MSG_BN_WHISPER")
 
    --Hide the mod messages from the chat frames
    ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER", WhisperFilter)
    ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER_INFORM", WhisperInformFilter)
+   ChatFrame_AddMessageEventFilter("CHAT_MSG_BN_WHISPER", WhisperFilter)
+   ChatFrame_AddMessageEventFilter("CHAT_MSG_BN_WHISPER_INFORM", WhisperInformFilter)
 
    --Schedule the countdown
    self:ScheduleTimer(PrintRaidMessage, countdown - 30, L["Last call in 30 seconds"])
@@ -601,8 +601,11 @@ function LastCall()
    local self = TributeLoot
 
    self:UnregisterEvent("CHAT_MSG_WHISPER")
+   self:UnregisterEvent("CHAT_MSG_BN_WHISPER")
    ChatFrame_RemoveMessageEventFilter("CHAT_MSG_WHISPER", WhisperFilter)
    ChatFrame_RemoveMessageEventFilter("CHAT_MSG_WHISPER_INFORM", WhisperInformFilter)
+   ChatFrame_RemoveMessageEventFilter("CHAT_MSG_BN_WHISPER", WhisperFilter)
+   ChatFrame_RemoveMessageEventFilter("CHAT_MSG_BN_WHISPER_INFORM", WhisperInformFilter)
    gtl_IsLootInProgress = false
    PrintOverallLootResults()
 end
@@ -690,12 +693,10 @@ function PrintDetailedResults(index)
       SendChatMessage("<" .. TributeLoot.title .. "> " .. L["Detailed Results for %s"]:format(gtl_LinkedItemsTable[index].ItemLink), chatType, nil, channel)
 
       for k, v in pairs(gtl_LinkedItemsTable[index].InList) do
-         if (nil == v.ExtraInfo) then
-            resultMessage = string.format("%s %s", k, L["mainspec"])
-         elseif not (v.ExtraInfo:find("%D")) then
-            resultMessage = L["%s bidding %s for %s"]:format(k, v.ExtraInfo, L["mainspec"])
+         if (nil == v.Comment) then
+            resultMessage = string.format("%s", gsub(k, "%-[^|]+", ""))
          else
-            resultMessage = L["%s replacing %s for %s"]:format(k, v.ExtraInfo, L["mainspec"])
+            resultMessage = string.format("%s %s", gsub(k, "%-[^|]+", ""), v.Comment)
          end
 
          rot = false
@@ -703,12 +704,10 @@ function PrintDetailedResults(index)
       end
 
       for k, v in pairs(gtl_LinkedItemsTable[index].RotList) do
-         if (nil == v.ExtraInfo) then
-            resultMessage = string.format("%s %s", k, L["offspec"])
-         elseif not (v.ExtraInfo:find("%D")) then
-            resultMessage = L["%s bidding %s for %s"]:format(k, v.ExtraInfo, L["offspec"])
+         if (nil == v.Comment) then
+            resultMessage = string.format("(%s)", gsub(k, "%-[^|]+", ""))
          else
-            resultMessage = L["%s replacing %s for %s"]:format(k, v.ExtraInfo, L["offspec"])
+            resultMessage = string.format("(%s) %s", gsub(k, "%-[^|]+", ""), v.Comment)
          end
 
          rot = false
@@ -750,13 +749,40 @@ end
 
 
 -------------------------------------------------------
--- Process whispers sent to the mod
+-- Battle tag whispers
+-------------------------------------------------------
+function TributeLoot:CHAT_MSG_BN_WHISPER(event, message, sender, a, b, c, d, e, f, g, h, i, j, presenceID)
+   k, presenceName, battleTag, isBattleTagPresence, toonName, toonID, client, isOnline, lastOnline, isAFK, isDND, messageText, noteText, isRIDFriend, broadcastTime, canSoR = BNGetFriendInfoByID(presenceID)
+   local character = nil
+
+   if(nil ~= toonName) then
+      character = toonName
+   elseif(nil ~= presenceName) then
+      character = presenceName
+   else
+      character = battleTag
+   end
+
+   ProcessWhisper(message, presenceID, event, character)
+end
+
+
+-------------------------------------------------------
+-- Normal whispers
 -------------------------------------------------------
 function TributeLoot:CHAT_MSG_WHISPER(event, message, sender)
+   ProcessWhisper(message, sender, event, sender)
+end
+
+
+-------------------------------------------------------
+-- Process whispers sent to the mod
+-------------------------------------------------------
+function ProcessWhisper(message, sender, channel, character)
    local self = TributeLoot
 
    if (nil ~= message) and (nil ~= sender) then
-      local option, itemIndex, extraInfo = self:GetArgs(message, 3)
+      local option, itemIndex, comment = SplitMessage(message)
 
       if (nil ~= option) then
          option = option:lower()
@@ -768,33 +794,33 @@ function TributeLoot:CHAT_MSG_WHISPER(event, message, sender)
 
       if ("in" == option) then
          if (nil ~= gtl_LinkedItemsTable[itemIndex]) then
-            if (true == AddPlayerToList(gtl_LinkedItemsTable[itemIndex].InList, sender, extraInfo)) then
-               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed."]:format(L["[IN]"], gtl_LinkedItemsTable[itemIndex].ItemLink, itemIndex), "WHISPER", nil, sender)
+            if (true == AddPlayerToList(gtl_LinkedItemsTable[itemIndex].InList, character, comment)) then
+               Reply("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed."]:format(L["[IN]"], gtl_LinkedItemsTable[itemIndex].ItemLink, itemIndex), channel, sender)
             else
-               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[IN]"], gtl_LinkedItemsTable[itemIndex].ItemLink), "WHISPER", nil, sender)
+               Reply("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[IN]"], gtl_LinkedItemsTable[itemIndex].ItemLink), channel, sender)
             end
          else
-            SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], "WHISPER", nil, sender)
+            Reply("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], 'CHAT_MSG_WHISPER', sender)
          end
       elseif ("rot" == option) then
          if (nil ~= gtl_LinkedItemsTable[itemIndex]) then
-            if (true == AddPlayerToList(gtl_LinkedItemsTable[itemIndex].RotList, sender, extraInfo)) then
-               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed."]:format(L["[ROT]"], gtl_LinkedItemsTable[itemIndex].ItemLink, itemIndex), "WHISPER", nil, sender)
+            if (true == AddPlayerToList(gtl_LinkedItemsTable[itemIndex].RotList, character, comment)) then
+               Reply("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed."]:format(L["[ROT]"], gtl_LinkedItemsTable[itemIndex].ItemLink, itemIndex), channel, sender)
             else
-               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[ROT]"], gtl_LinkedItemsTable[itemIndex].ItemLink), "WHISPER", nil, sender)
+               Reply("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[ROT]"], gtl_LinkedItemsTable[itemIndex].ItemLink), channel, sender)
             end
          else
-            SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], "WHISPER", nil, sender)
+            Reply("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], channel, sender)
          end
       elseif ("out" == option) then
          if (nil ~= gtl_LinkedItemsTable[itemIndex]) then
             local listString = ""
 
-            if (true == RemovePlayerFromList(gtl_LinkedItemsTable[itemIndex].InList, sender)) then
+            if (true == RemovePlayerFromList(gtl_LinkedItemsTable[itemIndex].InList, character)) then
                listString = L["[IN]"]
             end
 
-            if (true == RemovePlayerFromList(gtl_LinkedItemsTable[itemIndex].RotList, sender)) then
+            if (true == RemovePlayerFromList(gtl_LinkedItemsTable[itemIndex].RotList, character)) then
                if ("" ~= listString) then
                   listString = listString .. " " .. L["and"] .. " "
                end
@@ -802,12 +828,12 @@ function TributeLoot:CHAT_MSG_WHISPER(event, message, sender)
             end
 
             if ("" ~= listString) then
-               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You were removed from the %s list for %s."]:format(listString, gtl_LinkedItemsTable[itemIndex].ItemLink), "WHISPER", nil, sender)
+               Reply("<" .. TributeLoot.title .. "> " .. L["You were removed from the %s list for %s."]:format(listString, gtl_LinkedItemsTable[itemIndex].ItemLink), channel, sender)
             else
-               SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You are not on the lists for %s, so I cannot remove you."]:format(gtl_LinkedItemsTable[itemIndex].ItemLink) , "WHISPER", nil, sender)
+               Reply("<" .. TributeLoot.title .. "> " .. L["You are not on the lists for %s, so I cannot remove you."]:format(gtl_LinkedItemsTable[itemIndex].ItemLink) , channel, sender)
             end
          else
-            SendChatMessage("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], "WHISPER", nil, sender)
+            Reply("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], channel, sender)
          end
       end
    end
@@ -815,7 +841,26 @@ end
 
 
 -------------------------------------------------------
--- Supress whispers handled by the mod
+-- Split the message into individual parts
+-------------------------------------------------------
+function SplitMessage(message)
+   local option, itemIndex, nextPosition = TributeLoot:GetArgs(message, 2)
+   local comment = strsub(message, nextPosition)
+
+   return option, itemIndex, comment
+end
+
+function Reply(message, channel, sender)
+   if "CHAT_MSG_BN_WHISPER" == channel then
+      BNSendWhisper(sender, message)
+   elseif "CHAT_MSG_WHISPER" == channel then
+      SendChatMessage(message, "WHISPER", nil, sender)
+   end
+
+end
+
+-------------------------------------------------------
+-- Suppress whispers handled by the mod
 -------------------------------------------------------
 function WhisperFilter(ChatFrameSelf, event, arg1)
    if (nil ~= arg1) then
@@ -828,7 +873,7 @@ end
 
 
 -------------------------------------------------------
--- Supress whispers sent by the mod
+-- Suppress whispers sent by the mod
 -------------------------------------------------------
 function WhisperInformFilter(ChatFrameSelf, event, arg1)
    if (nil ~= arg1) then
