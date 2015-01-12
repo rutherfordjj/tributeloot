@@ -9,7 +9,6 @@ local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
 TributeLoot.title = "TL"
 TributeLoot.version = "TributeLoot @project-version@"
 
-
 -------------------------------------------------------
 -- Global variable declarations
 -------------------------------------------------------
@@ -18,28 +17,28 @@ local gtl_IsLootInProgress = false
 local gtl_CurrentProfileOptions
 local gtl_LootAdded = false
 
-
 -------------------------------------------------------
 -- This table sets the default profile options
 -------------------------------------------------------
 local defaults = {
    profile = {
-      CountdownSeconds     = 45,
+      CountdownSeconds     = 60,
       ItemQualityFilter    = 4,
       ResultsChannel       = "GUILD",
       CustomResultsChannel = "",
       LinkRecipes          = true,
       IgnoredItems         = {},
+      MainSpecKeyword      = "in",
+      OffSpecKeyword       = "rot",
+      OutKeyword           = "out",
    },
 }
-
 
 -------------------------------------------------------
 -- Adding an item ID to this table will add it to the
 -- menu as a checkable ignored item.
 -------------------------------------------------------
 local IgnoredOptions = {}
-
 
 -------------------------------------------------------
 -- This table sets up the options GUI
@@ -70,11 +69,50 @@ local options = {
                   gtl_CurrentProfileOptions.CountdownSeconds = v
                end,
             },
+            MainSpecKeyword = {
+               type = "input",
+               order = 2,
+               width = "double",
+               name = L["Main Spec Keyword"],
+               desc = L["Enter the keyword players should whisper for main spec loot"],
+               get = function()
+                  return gtl_CurrentProfileOptions.MainSpecKeyword
+               end,
+               set = function(info, v)
+                  gtl_CurrentProfileOptions.MainSpecKeyword = v:trim()
+               end,
+            },
+            OffSpecKeyword = {
+               type = "input",
+               order = 3,
+               width = "double",
+               name = L["Off Spec Keyword"],
+               desc = L["Enter the keyword players should whisper for off spec loot"],
+               get = function()
+                  return gtl_CurrentProfileOptions.OffSpecKeyword
+               end,
+               set = function(info, v)
+                  gtl_CurrentProfileOptions.OffSpecKeyword = v:trim()
+               end,
+            },
+            OutKeyword = {
+               type = "input",
+               order = 4,
+               width = "double",
+               name = L["Out Keyword"],
+               desc = L["Enter the keyword players should whisper to cancel their request"],
+               get = function()
+                  return gtl_CurrentProfileOptions.OutKeyword
+               end,
+               set = function(info, v)
+                  gtl_CurrentProfileOptions.OutKeyword = v:trim()
+               end,
+            },
             ItemQualityFilter = {
                type = "select",
                name = L["Item Quality"],
                desc = L["Sets the minimum item quality to link as loot"],
-               order = 2,
+               order = 5,
                width = "double",
                values = {
                   [0] = ITEM_QUALITY_COLORS[0].hex .. L["Poor"] .. "|r",
@@ -92,7 +130,7 @@ local options = {
             },
             ResultsChannel = {
                type = "select",
-               order = 3,
+               order = 6,
                width = "double",
                name = L["Results Location"],
                desc = L["Determines where loot results are printed"],
@@ -113,7 +151,7 @@ local options = {
             },
             CustomResultsChannel = {
                type = "input",
-               order = 4,
+               order = 7,
                width = "double",
                name = L["Channel"],
                desc = L["Enter the channel name or number where results should print"],
@@ -181,7 +219,6 @@ local options = {
    },
 }
 
-
 -------------------------------------------------------
 -- Determines if an item should be linked
 --
@@ -217,7 +254,6 @@ function IsValidItem(item)
    return isValid
 end
 
-
 -------------------------------------------------------
 -- Determines if an item is on the ignored list
 --
@@ -234,7 +270,6 @@ function IsIgnoredItem(itemId)
 
    return isIgnored
 end
-
 
 -------------------------------------------------------
 -- Determines if an item is a recipe
@@ -259,7 +294,6 @@ function IsRecipeItem(itemName)
    return isRecipe
 end
 
-
 -------------------------------------------------------
 -- Extracts the itemId from an itemLink
 --
@@ -280,7 +314,6 @@ function GetItemId(itemLink)
    return itemId
 end
 
-
 -------------------------------------------------------
 -- Update the ignored item options table
 -------------------------------------------------------
@@ -295,7 +328,6 @@ function LoadIgnoredOptions()
       end
    end
 end
-
 
 -------------------------------------------------------
 -- Adds Item to ignore list
@@ -320,7 +352,6 @@ function IgnoreItem(itemLink)
    end
 end
 
-
 -------------------------------------------------------
 -- Removes Item from ignore list
 -------------------------------------------------------
@@ -343,7 +374,6 @@ function UnignoreItem(itemLink)
       end
    end
 end
-
 
 -------------------------------------------------------
 -- Adds a new item entry to the table at the specified index
@@ -371,8 +401,8 @@ function AddItem(itemLink)
             ItemLink = itemLink,
             ItemId = GetItemId(itemLink),
             Count = 1,
-            InList = {},
-            RotList = {},
+            MainSpecList = {},
+            OffSpecList = {},
          }
 
          table.insert(gtl_LinkedItemsTable, itemEntry)
@@ -382,7 +412,6 @@ function AddItem(itemLink)
 
    return retVal
 end
-
 
 -------------------------------------------------------
 -- Clears loot results
@@ -401,7 +430,6 @@ function ClearItems()
 
    return retVal
 end
-
 
 -------------------------------------------------------
 -- Checks if an item id already exists in the item table
@@ -426,29 +454,25 @@ function DoesItemEntryExist(itemId)
    return itemExists, location
 end
 
-
 -------------------------------------------------------
 -- Adds a player to a list
 --
 -- @return true if successful, false otherwise
 -------------------------------------------------------
-function AddPlayerToList(list, playerName, comment)
+function AddPlayerToList(currentList, otherList, playerName, comment)
    local status = false
 
-   if (nil ~= playerName) and (nil ~= list) then
-      --Check if the player entry already exists
-      if (nil == list[playerName]) then
-         list[playerName] = {
+   if (nil ~= playerName) and (nil ~= currentList) then
+         currentList[playerName] = {
             Active = true,
             Comment = comment,
          }
+         RemovePlayerFromList(otherList, playerName)
          status = true
-      end
    end
 
    return status
 end
-
 
 -------------------------------------------------------
 -- Removes a player from a list
@@ -469,7 +493,6 @@ function RemovePlayerFromList(list, playerName)
    return status
 end
 
-
 -------------------------------------------------------
 -- Adds loot to the window without linking it
 -------------------------------------------------------
@@ -484,7 +507,7 @@ function AddLoot(displayItemMessages)
    end
 
    if (true == gtl_IsLootInProgress) then
-      self:Print(L["Cannot add anymore items until Last Call."])
+      self:Print(L["Cannot add more items until Last Call."])
       messaged = true
    elseif (0 == GetNumLootItems()) then
       self:Print(L["No items found. Make sure a loot window is open."])
@@ -518,7 +541,6 @@ function AddLoot(displayItemMessages)
    return messaged
 end
 
-
 -------------------------------------------------------
 -- Links items in raid warning
 -------------------------------------------------------
@@ -527,7 +549,7 @@ function LinkLoot()
    local messaged = false
 
    if (true == gtl_IsLootInProgress) then
-      self:Print(L["Cannot link anymore items until Last Call."])
+      self:Print(L["Cannot link more items until Last Call."])
    else
       --If no items have been added yet, try to add them
       if (false == gtl_LootAdded) then
@@ -539,7 +561,7 @@ function LinkLoot()
 
       --Print item table
       if (#gtl_LinkedItemsTable > 0) then
-         PrintRaidMessage(L["Whisper me \"in\" or \"rot\" with an item number below (example \"in 1\")"])
+         PrintRaidMessage(L["Whisper me \"%s\" or \"%s\" with an item number below (example \"%s 1\")"]:format(gtl_CurrentProfileOptions.MainSpecKeyword, gtl_CurrentProfileOptions.OffSpecKeyword, gtl_CurrentProfileOptions.MainSpecKeyword))
          local message
          for i,v in ipairs(gtl_LinkedItemsTable) do
             message = i .. " -- " .. v.ItemLink
@@ -558,7 +580,6 @@ function LinkLoot()
       end
    end
 end
-
 
 -------------------------------------------------------
 -- Starts the countdown
@@ -592,7 +613,6 @@ function StartCountDown()
    self:ScheduleTimer(LastCall, countdown + 1, nil)
 end
 
-
 -------------------------------------------------------
 -- Notifies the mod that loot is finished,
 -- so stop handling whispers and print the results
@@ -610,7 +630,6 @@ function LastCall()
    PrintOverallLootResults()
 end
 
-
 -------------------------------------------------------
 -- Returns where results should print
 -------------------------------------------------------
@@ -624,7 +643,6 @@ function GetResultsChannel()
 
    return chatType, channel
 end
-
 
 -------------------------------------------------------
 -- Prints the loot results
@@ -653,25 +671,24 @@ function PrintOverallLootResults()
          end
 
          counter = 0
-         for key, value in pairs(v.InList) do
+         for key, value in pairs(v.MainSpecList) do
             resultMessage = resultMessage .. " " .. gsub(key, "%-[^|]+", "") .. " "
             counter = counter + 1
          end
 
-         for key, value in pairs(v.RotList) do
+         for key, value in pairs(v.OffSpecList) do
             resultMessage = resultMessage .. " (" .. gsub(key, "%-[^|]+", "") .. ") "
             counter = counter + 1
          end
 
          if (0 == counter) then
-            resultMessage = resultMessage .. " " .. L["rot"]
+            resultMessage = resultMessage .. " " .. L["disenchant"]
          end
 
          SendChatMessage(resultMessage, chatType, nil, channel)
       end
    end
 end
-
 
 -------------------------------------------------------
 -- Prints detailed results on a single item
@@ -690,9 +707,16 @@ function PrintDetailedResults(index)
       self:Print(L["Cannot print results in the specified channel. Join the channel or change the options."])
    else
       rot = true
-      SendChatMessage("<" .. TributeLoot.title .. "> " .. L["Detailed Results for %s"]:format(gtl_LinkedItemsTable[index].ItemLink), chatType, nil, channel)
 
-      for k, v in pairs(gtl_LinkedItemsTable[index].InList) do
+      itemMessage = "<" .. TributeLoot.title .. "> " .. L["Detailed Results for %s"]:format(gtl_LinkedItemsTable[index].ItemLink)
+
+      if (gtl_LinkedItemsTable[index].Count > 1) then
+            itemMessage = itemMessage .. "x" .. gtl_LinkedItemsTable[index].Count
+      end
+
+      SendChatMessage(itemMessage, chatType, nil, channel)
+
+      for k, v in pairs(gtl_LinkedItemsTable[index].MainSpecList) do
          if (nil == v.Comment) then
             resultMessage = string.format("%s", gsub(k, "%-[^|]+", ""))
          else
@@ -703,7 +727,7 @@ function PrintDetailedResults(index)
          SendChatMessage(resultMessage, chatType, nil, channel)
       end
 
-      for k, v in pairs(gtl_LinkedItemsTable[index].RotList) do
+      for k, v in pairs(gtl_LinkedItemsTable[index].OffSpecList) do
          if (nil == v.Comment) then
             resultMessage = string.format("(%s)", gsub(k, "%-[^|]+", ""))
          else
@@ -719,7 +743,6 @@ function PrintDetailedResults(index)
       end
    end
 end
-
 
 -------------------------------------------------------
 -- Prints a message in raid warning if you have assist
@@ -747,7 +770,6 @@ function PrintRaidMessage(message)
    end
 end
 
-
 -------------------------------------------------------
 -- Battle tag whispers
 -------------------------------------------------------
@@ -766,14 +788,12 @@ function TributeLoot:CHAT_MSG_BN_WHISPER(event, message, sender, a, b, c, d, e, 
    ProcessWhisper(message, presenceID, event, character)
 end
 
-
 -------------------------------------------------------
 -- Normal whispers
 -------------------------------------------------------
 function TributeLoot:CHAT_MSG_WHISPER(event, message, sender)
    ProcessWhisper(message, sender, event, sender)
 end
-
 
 -------------------------------------------------------
 -- Process whispers sent to the mod
@@ -792,39 +812,32 @@ function ProcessWhisper(message, sender, channel, character)
          itemIndex = tonumber(itemIndex:trim())
       end
 
-      if ("in" == option) then
+      if (gtl_CurrentProfileOptions.MainSpecKeyword == option) then
          if (nil ~= gtl_LinkedItemsTable[itemIndex]) then
-            if (true == AddPlayerToList(gtl_LinkedItemsTable[itemIndex].InList, character, comment)) then
-               Reply("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed."]:format(L["[IN]"], gtl_LinkedItemsTable[itemIndex].ItemLink, itemIndex), channel, sender)
-            else
-               Reply("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[IN]"], gtl_LinkedItemsTable[itemIndex].ItemLink), channel, sender)
-            end
-         else
-            Reply("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], 'CHAT_MSG_WHISPER', sender)
-         end
-      elseif ("rot" == option) then
-         if (nil ~= gtl_LinkedItemsTable[itemIndex]) then
-            if (true == AddPlayerToList(gtl_LinkedItemsTable[itemIndex].RotList, character, comment)) then
-               Reply("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"out %d\" to be removed."]:format(L["[ROT]"], gtl_LinkedItemsTable[itemIndex].ItemLink, itemIndex), channel, sender)
-            else
-               Reply("<" .. TributeLoot.title .. "> " .. L["You are already added to the %s list for %s, so I am ignoring this request."]:format(L["[ROT]"], gtl_LinkedItemsTable[itemIndex].ItemLink), channel, sender)
+            if (true == AddPlayerToList(gtl_LinkedItemsTable[itemIndex].MainSpecList, gtl_LinkedItemsTable[itemIndex].OffSpecList, character, comment)) then
+               Reply("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"%s %d\" to be removed."]:format(L["main spec"], gtl_LinkedItemsTable[itemIndex].ItemLink, gtl_CurrentProfileOptions.OutKeyword, itemIndex), channel, sender)
             end
          else
             Reply("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], channel, sender)
          end
-      elseif ("out" == option) then
+      elseif (gtl_CurrentProfileOptions.OffSpecKeyword == option) then
+         if (nil ~= gtl_LinkedItemsTable[itemIndex]) then
+            if (true == AddPlayerToList(gtl_LinkedItemsTable[itemIndex].OffSpecList, gtl_LinkedItemsTable[itemIndex].MainSpecList, character, comment)) then
+               Reply("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"%s %d\" to be removed."]:format(L["off spec"], gtl_LinkedItemsTable[itemIndex].ItemLink, gtl_CurrentProfileOptions.OutKeyword, itemIndex), channel, sender)
+            end
+         else
+            Reply("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], channel, sender)
+         end
+      elseif (gtl_CurrentProfileOptions.OutKeyword == option) then
          if (nil ~= gtl_LinkedItemsTable[itemIndex]) then
             local listString = ""
 
-            if (true == RemovePlayerFromList(gtl_LinkedItemsTable[itemIndex].InList, character)) then
-               listString = L["[IN]"]
+            if (true == RemovePlayerFromList(gtl_LinkedItemsTable[itemIndex].MainSpecList, character)) then
+               listString = L["main spec"]
             end
 
-            if (true == RemovePlayerFromList(gtl_LinkedItemsTable[itemIndex].RotList, character)) then
-               if ("" ~= listString) then
-                  listString = listString .. " " .. L["and"] .. " "
-               end
-               listString = listString .. L["[ROT]"]
+            if (true == RemovePlayerFromList(gtl_LinkedItemsTable[itemIndex].OffSpecList, character)) then
+               listString = listString .. L["off spec"]
             end
 
             if ("" ~= listString) then
@@ -838,7 +851,6 @@ function ProcessWhisper(message, sender, channel, character)
       end
    end
 end
-
 
 -------------------------------------------------------
 -- Split the message into individual parts
@@ -867,12 +879,11 @@ end
 function WhisperFilter(ChatFrameSelf, event, arg1)
    if (nil ~= arg1) then
       local option = TributeLoot:GetArgs(arg1:lower(), 1)
-      if ("in" == option) or ("rot" == option) or ("out" == option) then
+      if (gtl_CurrentProfileOptions.MainSpecKeyword == option) or (gtl_CurrentProfileOptions.OffSpecKeyword == option) or (gtl_CurrentProfileOptions.OutKeyword == option) then
          return true
       end
    end
 end
-
 
 -------------------------------------------------------
 -- Suppress whispers sent by the mod
@@ -884,7 +895,6 @@ function WhisperInformFilter(ChatFrameSelf, event, arg1)
       end
    end
 end
-
 
 -------------------------------------------------------
 -- Handles slash commands
@@ -942,14 +952,12 @@ function SlashHandler(options)
    end
 end
 
-
 -------------------------------------------------------
 -- Updates the menu GUI with the option changes
 -------------------------------------------------------
 function NotifyMenuOptionsChange()
    LibStub("AceConfigRegistry-3.0"):NotifyChange("TL")
 end
-
 
 -------------------------------------------------------
 -- Initialize the option frames
@@ -961,7 +969,6 @@ function TributeLoot:SetupOptions()
    self.optionsFrames.general = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("TL", "TributeLoot", nil, "General")
    self.optionsFrames.ignoreList = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("TL", "Ignored Items", "TributeLoot", "IgnoreMenu")
 end
-
 
 -------------------------------------------------------
 -- Show the options window
@@ -975,7 +982,6 @@ function TributeLoot:ShowConfig()
    end
 end
 
-
 -------------------------------------------------------
 -- Show the options window
 -------------------------------------------------------
@@ -988,14 +994,12 @@ function TributeLoot:ShowIgnoreMenu()
    end
 end
 
-
 -------------------------------------------------------
 -- Called when options profile is changed
 -------------------------------------------------------
 function TributeLoot:OnProfileChanged(event, database, newProfileKey)
    gtl_CurrentProfileOptions = database.profile
 end
-
 
 -------------------------------------------------------
 -- AddOn Initialization
