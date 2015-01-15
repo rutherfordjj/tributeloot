@@ -16,6 +16,8 @@ local gtl_LinkedItemsTable = {}
 local gtl_IsLootInProgress = false
 local gtl_CurrentProfileOptions
 local gtl_LootAdded = false
+local gtl_TributeLootTooltip = CreateFrame('GameTooltip', 'TributeLootTooltip', UIParent, 'GameTooltipTemplate')
+gtl_TributeLootTooltip:SetOwner(UIParent, "ANCHOR_NONE")
 
 -------------------------------------------------------
 -- This table sets the default profile options
@@ -390,21 +392,41 @@ function AddItem(itemLink)
       local alreadyExists, location = DoesItemEntryExist(itemId)
 
       if (true == alreadyExists) then
-         -- Increment the item count
-         if (nil ~= location) and (nil ~= gtl_LinkedItemsTable[location]) then
-            gtl_LinkedItemsTable[location].Count = gtl_LinkedItemsTable[location].Count + 1
+         if (nil ~= location) then
+            found = false
+            for i,v in ipairs(gtl_LinkedItemsTable[location].ItemLinks) do
+               if (v.ItemLink ==  itemLink) then
+                  v.Count = v.Count + 1
+                  found = true
+                  break
+               end
+            end
+
+            if(false == found) then
+               local link = {
+                  ItemLink = itemLink,
+                  Count = 1,
+               }
+               table.insert(gtl_LinkedItemsTable[location].ItemLinks, link)
+            end
             retVal = true
          end
       elseif (true == IsValidItem(itemLink)) then
          -- Add the item entry to the table
           local itemEntry = {
-            ItemLink = itemLink,
+            ItemLinks = {},
             ItemId = GetItemId(itemLink),
-            Count = 1,
+            BindOnPickup = IsBindOnPickup(itemLink),
             MainSpecList = {},
             OffSpecList = {},
          }
 
+         local link = {
+            ItemLink = itemLink,
+            Count = 1,
+         }
+
+         table.insert(itemEntry.ItemLinks, link)
          table.insert(gtl_LinkedItemsTable, itemEntry)
          retVal = true
       end
@@ -442,10 +464,10 @@ function DoesItemEntryExist(itemId)
    local location = nil
 
    if (nil ~= itemId) then
-      for index, value in ipairs(gtl_LinkedItemsTable) do
-         if (value.ItemId == itemId) then
+      for i, v in ipairs(gtl_LinkedItemsTable) do
+         if (v.ItemId == itemId) then
             itemExists = true
-            location = index
+            location = i
             break
          end
       end
@@ -455,19 +477,86 @@ function DoesItemEntryExist(itemId)
 end
 
 -------------------------------------------------------
+-- Returns printable item links for current index
+--
+-- @return printable item links
+-------------------------------------------------------
+function GetItemLinks(index, detailed)
+   local message = ""
+   local current = 0
+   local extra = 0
+   local numLinks = #gtl_LinkedItemsTable[index].ItemLinks
+
+   for i,v in ipairs(gtl_LinkedItemsTable[index].ItemLinks) do
+      current = current + 1
+      if(current < 3) then  --Don't link more than 2 items due to chat character limit, just put +1 to show more are there
+         if (detailed) then --if not detailed, exit after first item
+            message = message .. v.ItemLink
+
+            if (v.Count > 1) then
+               message = message .. "x" .. v.Count
+
+               if(current == 1 and numLinks > 1) then --if first item and there are more than 1 items, add space
+                  message = message .. " "
+               end
+            end
+         else
+            if(strlen(v.ItemLink) > strlen(message)) then --if we are only linking 1 item link, do the one with the most stat bonuses (guess by item link size)
+               message = v.ItemLink
+            end
+         end
+      else
+         extra = extra + v.Count
+      end
+   end
+
+   if(extra > 0 and detailed) then
+      message = message .. " (+" .. extra .. ")"
+   end
+
+   return message
+end
+
+-------------------------------------------------------
+-- Check tooltip to see if item is Bind on Equip
+--
+-- @return true if BindOnPickup, false otherwise
+-------------------------------------------------------
+function IsBindOnPickup(itemLink)
+   local BindOnPickup = false
+
+	gtl_TributeLootTooltip:ClearLines()
+	gtl_TributeLootTooltip:SetHyperlink(itemLink)
+
+   for i=1,gtl_TributeLootTooltip:NumLines() do
+      local line = getglobal("TributeLootTooltipTextLeft" .. i)
+      local text = line:GetText()  --localize
+
+      if (ITEM_BIND_ON_PICKUP == text) then
+         BindOnPickup = true
+         break
+      elseif(ITEM_BIND_ON_EQUIP == text) then
+         --Not BoE, stop looking
+         break
+      end
+   end
+
+   return BindOnPickup
+end
+
+-------------------------------------------------------
 -- Adds a player to a list
 --
 -- @return true if successful, false otherwise
 -------------------------------------------------------
-function AddPlayerToList(currentList, otherList, playerName, comment)
+function AddPlayerToList(activeList, inactiveList, playerName, comment)
    local status = false
 
-   if (nil ~= playerName) and (nil ~= currentList) then
-         currentList[playerName] = {
-            Active = true,
+   if (nil ~= playerName) and (nil ~= activeList) then
+         activeList[playerName] = {
             Comment = comment,
          }
-         RemovePlayerFromList(otherList, playerName)
+         RemovePlayerFromList(inactiveList, playerName)
          status = true
    end
 
@@ -495,8 +584,11 @@ end
 
 -------------------------------------------------------
 -- Adds loot to the window without linking it
+--
+--If itemLink isn't nil, adds it.
+--Otherwise tries to add current loot window.
 -------------------------------------------------------
-function AddLoot(displayItemMessages)
+function AddLoot(displayItemMessages, itemLink)
    local self = TributeLoot
    local count = 0
    local messaged = false
@@ -509,6 +601,13 @@ function AddLoot(displayItemMessages)
    if (true == gtl_IsLootInProgress) then
       self:Print(L["Cannot add more items until Last Call."])
       messaged = true
+   elseif(itemLink ~= nil) then
+      if (true == AddItem(itemLink)) then
+         self:Print("Added " .. itemLink)
+         gtl_LootAdded = true
+      else
+         self:Print("Not Added " .. itemLink)
+      end
    elseif (0 == GetNumLootItems()) then
       self:Print(L["No items found. Make sure a loot window is open."])
       messaged = true
@@ -542,6 +641,29 @@ function AddLoot(displayItemMessages)
 end
 
 -------------------------------------------------------
+-- Debug command for manually adding loot
+-------------------------------------------------------
+function DebugAdd(itemLink)
+   local self = TributeLoot
+
+   --If loot hasn't been added since the last time it was linked, clear the table
+   if (false == gtl_LootAdded) then
+      ClearItems()
+   end
+
+   if (true == gtl_IsLootInProgress) then
+      self:Print(L["Cannot add more items until Last Call."])
+   else
+      if (true == AddItem(itemLink)) then
+         self:Print("Added " .. itemLink)
+         gtl_LootAdded = true
+      else
+         self:Print("Not Added " .. itemLink)
+      end
+   end
+end
+
+-------------------------------------------------------
 -- Links items in raid warning
 -------------------------------------------------------
 function LinkLoot()
@@ -564,10 +686,7 @@ function LinkLoot()
          PrintRaidMessage(L["Whisper me \"%s\" or \"%s\" with an item number below (example \"%s 1\")"]:format(gtl_CurrentProfileOptions.MainSpecKeyword, gtl_CurrentProfileOptions.OffSpecKeyword, gtl_CurrentProfileOptions.MainSpecKeyword))
          local message
          for i,v in ipairs(gtl_LinkedItemsTable) do
-            message = i .. " -- " .. v.ItemLink
-            if (v.Count > 1) then
-               message = message .. "x" .. v.Count
-            end
+            message = i .. " -- " .. GetItemLinks(i, true)
             PrintRaidMessage(message)
          end
 
@@ -664,11 +783,7 @@ function PrintOverallLootResults()
       SendChatMessage("<" .. TributeLoot.title .. "> " ..  L["Results"], chatType, nil, channel)
 
       for i,v in ipairs(gtl_LinkedItemsTable) do
-         resultMessage = v.ItemLink
-
-         if (v.Count > 1) then
-            resultMessage = resultMessage .. "x" .. v.Count
-         end
+         resultMessage = i .. " -- " .. GetItemLinks(i, true)
 
          counter = 0
          for key, value in pairs(v.MainSpecList) do
@@ -682,7 +797,11 @@ function PrintOverallLootResults()
          end
 
          if (0 == counter) then
-            resultMessage = resultMessage .. " " .. L["disenchant"]
+            if(v.BindOnPickup) then
+               resultMessage = resultMessage .. " " .. L["<disenchanter>"]
+            else
+               resultMessage = resultMessage .. " " .. L["<banker>"]
+            end
          end
 
          SendChatMessage(resultMessage, chatType, nil, channel)
@@ -706,40 +825,44 @@ function PrintDetailedResults(index)
    elseif (0 == channel) then
       self:Print(L["Cannot print results in the specified channel. Join the channel or change the options."])
    else
-      rot = true
 
-      itemMessage = "<" .. TributeLoot.title .. "> " .. L["Detailed Results for %s"]:format(gtl_LinkedItemsTable[index].ItemLink)
+      interestLevel = false
 
-      if (gtl_LinkedItemsTable[index].Count > 1) then
-            itemMessage = itemMessage .. "x" .. gtl_LinkedItemsTable[index].Count
+      for k, v in pairs(gtl_LinkedItemsTable[index].MainSpecList) do --check if anything exists in this table
+         interestLevel = true
+         break
       end
 
-      SendChatMessage(itemMessage, chatType, nil, channel)
+      for k, v in pairs(gtl_LinkedItemsTable[index].OffSpecList) do  --check if anything exists in this table
+         interestLevel = true
+         break
+      end
 
-      for k, v in pairs(gtl_LinkedItemsTable[index].MainSpecList) do
-         if (nil == v.Comment) then
-            resultMessage = string.format("%s", gsub(k, "%-[^|]+", ""))
-         else
-            resultMessage = string.format("%s %s", gsub(k, "%-[^|]+", ""), v.Comment)
+      if (interestLevel) then
+         itemMessage = "<" .. TributeLoot.title .. "> " .. L["Detailed Results for %s"]:format(GetItemLinks(index, true))
+         SendChatMessage(itemMessage, chatType, nil, channel)
+
+         for k, v in pairs(gtl_LinkedItemsTable[index].MainSpecList) do
+            if (nil == v.Comment) then
+               resultMessage = string.format("%s", gsub(k, "%-[^|]+", ""))
+            else
+               resultMessage = string.format("%s %s", gsub(k, "%-[^|]+", ""), v.Comment)
+            end
+
+            SendChatMessage(resultMessage, chatType, nil, channel)
          end
 
-         rot = false
-         SendChatMessage(resultMessage, chatType, nil, channel)
-      end
+         for k, v in pairs(gtl_LinkedItemsTable[index].OffSpecList) do
+            if (nil == v.Comment) then
+               resultMessage = string.format("(%s)", gsub(k, "%-[^|]+", ""))
+            else
+               resultMessage = string.format("(%s) %s", gsub(k, "%-[^|]+", ""), v.Comment)
+            end
 
-      for k, v in pairs(gtl_LinkedItemsTable[index].OffSpecList) do
-         if (nil == v.Comment) then
-            resultMessage = string.format("(%s)", gsub(k, "%-[^|]+", ""))
-         else
-            resultMessage = string.format("(%s) %s", gsub(k, "%-[^|]+", ""), v.Comment)
+            SendChatMessage(resultMessage, chatType, nil, channel)
          end
-
-         rot = false
-         SendChatMessage(resultMessage, chatType, nil, channel)
-      end
-
-      if (true == rot) then
-         SendChatMessage(L["No one is interested in this item."], chatType, nil, channel)
+      else
+         TributeLoot:Print(L["No one is interested in this item."])
       end
    end
 end
@@ -815,7 +938,7 @@ function ProcessWhisper(message, sender, channel, character)
       if (gtl_CurrentProfileOptions.MainSpecKeyword == option) then
          if (nil ~= gtl_LinkedItemsTable[itemIndex]) then
             if (true == AddPlayerToList(gtl_LinkedItemsTable[itemIndex].MainSpecList, gtl_LinkedItemsTable[itemIndex].OffSpecList, character, comment)) then
-               Reply("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"%s %d\" to be removed."]:format(L["main spec"], gtl_LinkedItemsTable[itemIndex].ItemLink, gtl_CurrentProfileOptions.OutKeyword, itemIndex), channel, sender)
+               Reply("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"%s %d\" to be removed."]:format(L["main spec"], GetItemLinks(itemIndex, false), gtl_CurrentProfileOptions.OutKeyword, itemIndex), channel, sender)
             end
          else
             Reply("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], channel, sender)
@@ -823,7 +946,7 @@ function ProcessWhisper(message, sender, channel, character)
       elseif (gtl_CurrentProfileOptions.OffSpecKeyword == option) then
          if (nil ~= gtl_LinkedItemsTable[itemIndex]) then
             if (true == AddPlayerToList(gtl_LinkedItemsTable[itemIndex].OffSpecList, gtl_LinkedItemsTable[itemIndex].MainSpecList, character, comment)) then
-               Reply("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"%s %d\" to be removed."]:format(L["off spec"], gtl_LinkedItemsTable[itemIndex].ItemLink, gtl_CurrentProfileOptions.OutKeyword, itemIndex), channel, sender)
+               Reply("<" .. TributeLoot.title .. "> " .. L["You were added to the %s list for %s. Whisper me \"%s %d\" to be removed."]:format(L["off spec"], GetItemLinks(itemIndex, false), gtl_CurrentProfileOptions.OutKeyword, itemIndex), channel, sender)
             end
          else
             Reply("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], channel, sender)
@@ -841,9 +964,9 @@ function ProcessWhisper(message, sender, channel, character)
             end
 
             if ("" ~= listString) then
-               Reply("<" .. TributeLoot.title .. "> " .. L["You were removed from the %s list for %s."]:format(listString, gtl_LinkedItemsTable[itemIndex].ItemLink), channel, sender)
+               Reply("<" .. TributeLoot.title .. "> " .. L["You were removed from the %s list for %s."]:format(listString, GetItemLinks(itemIndex, false)), channel, sender)
             else
-               Reply("<" .. TributeLoot.title .. "> " .. L["You are not on the lists for %s, so I cannot remove you."]:format(gtl_LinkedItemsTable[itemIndex].ItemLink) , channel, sender)
+               Reply("<" .. TributeLoot.title .. "> " .. L["You are not on the lists for %s, so I cannot remove you."]:format(GetItemLinks(itemIndex, false)), channel, sender)
             end
          else
             Reply("<" .. TributeLoot.title .. "> " .. L["You did not specify a valid item, please try again."], channel, sender)
@@ -910,7 +1033,7 @@ function SlashHandler(options)
    if (L["link"] == command) or ("l" == command) then
       LinkLoot()
    elseif (L["addloot"] == command or ("a" == command)) then
-      AddLoot(true)
+      AddLoot(true, param1)
    elseif (L["results"] == command) or ("r" == command) then
       if (nil ~= param1) then
          param1 = tonumber(param1)
