@@ -797,7 +797,7 @@ function PrintOverallLootResults()
          end
 
          if (0 == counter) then
-            if(v.BindOnPickup) then
+            if(true == v.BindOnPickup) then
                resultMessage = resultMessage .. " " .. L["<disenchanter>"]
             else
                resultMessage = resultMessage .. " " .. L["<banker>"]
