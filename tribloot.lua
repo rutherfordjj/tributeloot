@@ -14,10 +14,9 @@ TributeLoot.version = "TributeLoot @project-version@"
 -------------------------------------------------------
 local gtl_LinkedItemsTable = {}
 local gtl_IsLootInProgress = false
-local gtl_CurrentProfileOptions
+local gtl_CurrentProfileOptions = nil
 local gtl_LootAdded = false
-local gtl_TributeLootTooltip = CreateFrame('GameTooltip', 'TributeLootTooltip', UIParent, 'GameTooltipTemplate')
-gtl_TributeLootTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+local gtl_TributeLootTooltip = nil
 
 -------------------------------------------------------
 -- This table sets the default profile options
@@ -395,7 +394,7 @@ function AddItem(itemLink)
          if (nil ~= location) then
             found = false
             for i,v in ipairs(gtl_LinkedItemsTable[location].ItemLinks) do
-               if (v.ItemLink ==  itemLink) then
+               if (v.ItemLink == itemLink) then
                   v.Count = v.Count + 1
                   found = true
                   break
@@ -518,15 +517,15 @@ function GetItemLinks(index, detailed)
 end
 
 -------------------------------------------------------
--- Check tooltip to see if item is Bind on Equip
+-- Check tooltip to see if item is Bind on Pickup
 --
 -- @return true if BindOnPickup, false otherwise
 -------------------------------------------------------
 function IsBindOnPickup(itemLink)
    local BindOnPickup = false
 
-	gtl_TributeLootTooltip:ClearLines()
-	gtl_TributeLootTooltip:SetHyperlink(itemLink)
+   gtl_TributeLootTooltip:ClearLines()
+   gtl_TributeLootTooltip:SetHyperlink(itemLink)
 
    for i=1,gtl_TributeLootTooltip:NumLines() do
       local line = getglobal("TributeLootTooltipTextLeft" .. i)
@@ -638,29 +637,6 @@ function AddLoot(displayItemMessages, itemLink)
    end
 
    return messaged
-end
-
--------------------------------------------------------
--- Debug command for manually adding loot
--------------------------------------------------------
-function DebugAdd(itemLink)
-   local self = TributeLoot
-
-   --If loot hasn't been added since the last time it was linked, clear the table
-   if (false == gtl_LootAdded) then
-      ClearItems()
-   end
-
-   if (true == gtl_IsLootInProgress) then
-      self:Print(L["Cannot add more items until Last Call."])
-   else
-      if (true == AddItem(itemLink)) then
-         self:Print("Added " .. itemLink)
-         gtl_LootAdded = true
-      else
-         self:Print("Not Added " .. itemLink)
-      end
-   end
 end
 
 -------------------------------------------------------
@@ -826,7 +802,7 @@ function PrintDetailedResults(index)
       self:Print(L["Cannot print results in the specified channel. Join the channel or change the options."])
    else
 
-      interestLevel = false
+      local interestLevel = false
 
       for k, v in pairs(gtl_LinkedItemsTable[index].MainSpecList) do --check if anything exists in this table
          interestLevel = true
@@ -1134,6 +1110,9 @@ function TributeLoot:OnInitialize()
    self.db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
 
    gtl_CurrentProfileOptions = self.db.profile
+
+   gtl_TributeLootTooltip = CreateFrame('GameTooltip', 'TributeLootTooltip', UIParent, 'GameTooltipTemplate')
+   gtl_TributeLootTooltip:SetOwner(UIParent, "ANCHOR_NONE")
 
    --Load options on init so client will async query the item info from server
    --otherwise GetItemInfo will probably return nil the first time it is called
