@@ -1,9 +1,6 @@
 -------------------------------------------------------
 --                T R I B U T E L O O T
 -------------------------------------------------------
---        Author(s): Euthymius - Thunderlord
---          Website: http://www.reforgedguild.net
--------------------------------------------------------
 local TributeLoot = LibStub("AceAddon-3.0"):NewAddon("TL", "AceConsole-3.0", "AceTimer-3.0", "AceEvent-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("TributeLoot")
 TributeLoot.title = "TL"
@@ -535,7 +532,7 @@ function IsBindOnPickup(itemLink)
          BindOnPickup = true
          break
       elseif(ITEM_BIND_ON_EQUIP == text) then
-         --Not BoE, stop looking
+         --Not BoP, keep looking
          break
       end
    end
