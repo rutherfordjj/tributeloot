@@ -528,11 +528,11 @@ function IsBindOnPickup(itemLink)
       local line = getglobal("TributeLootTooltipTextLeft" .. i)
       local text = line:GetText()  --localize
 
-      if (ITEM_BIND_ON_PICKUP == text) then
+      if (string.find(text, ITEM_BIND_ON_PICKUP)) then
          BindOnPickup = true
          break
-      elseif(ITEM_BIND_ON_EQUIP == text) then
-         --Not BoP, keep looking
+      elseif(string.find(text, ITEM_BIND_ON_EQUIP)) then
+         --BoE, stop looking
          break
       end
    end
