@@ -1,4 +1,4 @@
-## Interface: 70300
+## Interface: 80000
 ## Author: Euthymius
 ## Version: @project-version@
 ## Title: TributeLoot |cff7fff7f -Ace3-|r
